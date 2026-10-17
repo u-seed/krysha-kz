@@ -1,0 +1,212 @@
+<body class="a-search-page favorites-not-updated">
+<script>
+    (function () {
+        var isSvgSupported  = document.implementation.hasFeature("http://www.w3.org/TR/SVG11/feature#Image", "1.1"),
+            hasLocalStorage;
+
+        try {
+            hasLocalStorage = 'localStorage' in window && window.localStorage !== null;
+        } catch (e) {
+            hasLocalStorage = false;
+        }
+
+        function insertSvg(data) {
+            var div = document.createElement("div");
+
+            div.className = 'svg-container';
+            div.innerHTML = data;
+            document.body.insertBefore(div, document.body.childNodes[0]);
+        }
+
+        function getSvgSprite(name, url) {
+            var cacheKey = name,
+                urlKey   = name + 'Url',
+                svgRequest,
+                cachedSvg;
+
+            cachedSvg = hasLocalStorage ? localStorage.getItem(cacheKey) : null;
+
+            if (cachedSvg && localStorage.getItem(urlKey) === url) {
+                insertSvg(cachedSvg);
+            } else {
+                svgRequest = new XMLHttpRequest();
+
+                svgRequest.open("GET", url, true);
+                svgRequest.send();
+                svgRequest.onload = function () {
+                    insertSvg(svgRequest.responseText);
+
+                    if (hasLocalStorage) {
+                        localStorage.setItem(cacheKey, svgRequest.responseText);
+                        localStorage.setItem(urlKey, url);
+                    }
+                };
+            }
+        }
+
+        if (isSvgSupported) {
+            if (window.data.svgIconsUrl) getSvgSprite('svgCache', window.data.svgIconsUrl);
+        }
+    })();
+</script>
+                        
+                            <div class="topb"><div class="common-b vip ddl_campaign" id="vip"  data-campaign-id="vip">
+                    <div id='div-gpt-ad-1536297276650-0'>
+                        <script type="text/javascript">
+                            googletag.cmd.push(function() {
+                                
+                                googletag.display('div-gpt-ad-1536297276650-0');
+                            });
+                        </script>
+                    </div>
+                    <div id='ya-vip'></div>
+                </div></div>
+                            
+<header class="header-public">
+    <div class="primary-navbar-container">
+        <div class="global-alert-container">
+    <div class="global-alert-wrap">
+                                            </div>
+</div>        <div class="container header-wrap">
+    <nav class="site-switcher">
+        
+<ul class="corp-projects">
+                                            
+        <li class="corp-projects__item ">
+            <a
+                class="corp-projects__title js__tippy corp-projects__link"
+                                    href="https://kolesa.kz"
+                                data-tippy-content="Автомобили"
+                data-tippy-placement="bottom"
+                data-tippy-theme="kr-dark"
+                data-tippy-offset="[0, 16]"
+            >
+                Kolesa.kz
+            </a>
+        </li>
+                                            
+        <li class="corp-projects__item corp-projects__item--active">
+            <span
+                class="corp-projects__title js__tippy "
+                                data-tippy-content="Недвижимость"
+                data-tippy-placement="bottom"
+                data-tippy-theme="kr-dark"
+                data-tippy-offset="[0, 16]"
+            >
+                Krisha.kz
+            </span>
+        </li>
+    </ul>
+    </nav>
+
+    <ul class="navbar-menu">
+        <li>
+            <div id="header-lang"></div>
+        </li>
+        <li class="support-link-item">
+            <a href=/content/special/write-us/message>
+                Служба заботы
+            </a>
+        </li>
+        <li class="favorites-link-item">
+            <a href="/favorites/advert/">Избранное</a>
+            <span class="navbar-badge fav-nb-value"></span>
+        </li>
+                    <li class="registration-link-item">
+                <a href="/passport/register">Регистрация</a>
+            </li>
+            <li class="cabinet-link-item">
+                <a href="/my" class="cabinet-link">Личный кабинет</a>
+            </li>
+            </ul>
+</div>
+    </div>
+
+            <div class="container">
+        <div class="secondary-navbar ">
+            <div class="logo-container">
+                <a href="/" class="logo">
+                                            <svg role="img" class="icon icon-svg icon-logo"><use xlink:href="#icon-logo"></use></svg>
+                                    </a>
+            </div>
+
+            <nav class="main-menu">
+    <ul>
+                    <li class="is-active">
+                <a
+                    href="/prodazha/"
+                    
+                >
+                    Продажа
+
+                                    </a>
+            </li>
+                    <li >
+                <a
+                    href="/arenda/"
+                    
+                >
+                    Аренда
+
+                                    </a>
+            </li>
+                    <li >
+                <a
+                    href="/valuation/"
+                    
+                >
+                    Оценка
+
+                                    </a>
+            </li>
+                    <li >
+                <a
+                    href="/complex/search/"
+                    
+                >
+                    Новостройки
+
+                                    </a>
+            </li>
+                    <li >
+                <a
+                    href="/content/"
+                    
+                >
+                    Новости
+
+                                    </a>
+            </li>
+                    <li >
+                <a
+                    href="/content/guide/"
+                    
+                >
+                    Крыша Гид
+
+                                    </a>
+            </li>
+            </ul>
+</nav>
+
+            <div class="a-new-block">
+                                    <div class="text-help">530 954 уже на сайте</div>
+                                <a href="/a/new?redirect=1"
+                   class="btn ">
+                    Подать объявление
+                </a>
+            </div>
+        </div>
+        
+                
+        <div class="category-navbar">
+                            <nav class="submenu submenu-one-row clearfix">
+    <ul>
+                    <li class="submenu-item is-active">
+                <a href="/prodazha/kvartiry/" data-id="1" class="link submenu-link menu-category-link">Квартиры</a>
+            </li>
+                    <li class="submenu-item">
+                <a href="/prodazha/doma-dachi/" data-id="62" class="link submenu-link menu-category-link">Дома или Дачи</a>
+            </li>
+                    <li class="submenu-item">
+                <a href="/prodazha/garazhi/" data-id="63" 
