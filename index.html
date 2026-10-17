@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Крыша KZ · Актау</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14181f">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f3f1ec;--card:#fff;--ink:#1b1f27;--mut:#6b7280;--line:#e4e1d9;--acc:#e0a100;--acc-ink:#1b1f27;
+  --good:#0f9d58;--ok:#6b9a1f;--mid:#d98200;--bad:#d93025;--chip:#ece9e1;--chip-on:#1b1f27;--chip-on-ink:#fff;
+  --tag-o:#0f9d58;--tag-a:#6b7280;--tag-d:#3b6fd4;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#14181f;--card:#1d222b;--ink:#eceff4;--mut:#8f98a6;--line:#2a313c;--acc:#f5b301;--acc-ink:#14181f;
+  --good:#3ddc84;--ok:#a5d63f;--mid:#ffb02e;--bad:#ff6b5e;--chip:#262d38;--chip-on:#f5b301;--chip-on-ink:#14181f;
+  --tag-o:#3ddc84;--tag-a:#8f98a6;--tag-d:#7aa2ff}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding-bottom:env(safe-area-inset-bottom)}
+header{padding:12px 14px 4px}
+nav#stick{position:sticky;top:0;z-index:5;background:var(--bg);padding:2px 14px 6px;border-bottom:1px solid var(--line)}
+#filters{margin:0 0 8px}
+.top{display:flex;align-items:center;gap:10px}
+h1{font-size:18px;margin:0;flex:1}
+.sub{font-size:12px;color:var(--mut)}
+.row{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none}
+.row::-webkit-scrollbar{display:none}
+.chip{flex:none;border:0;background:var(--chip);color:var(--ink);padding:7px 12px;border-radius:999px;font:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--chip-on);color:var(--chip-on-ink);font-weight:600}
+.chip small{opacity:.7;margin-left:4px}
+.lbl{flex:none;font-size:11px;color:var(--mut);align-self:center;padding:0 2px 0 0;text-transform:uppercase;letter-spacing:.04em}
+.iconbtn{border:0;background:var(--chip);color:var(--ink);width:36px;height:36px;border-radius:50%;font-size:17px;cursor:pointer}
+select{background:var(--chip);color:var(--ink);border:0;border-radius:999px;padding:7px 10px;font:inherit;font-size:13.5px}
+main{padding:10px 12px 40px;max-width:820px;margin:0 auto}
+.banner{padding:10px 12px;border-radius:10px;margin:0 0 10px;font-size:13.5px}
+.banner.warn{background:#fff3cd;color:#664d03}.banner.err{background:#fde7e5;color:#8a1c14}
+@media (prefers-color-scheme:dark){.banner.warn{background:#3a3115;color:#ffe08a}.banner.err{background:#3d1d1a;color:#ffb3ab}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:0 0 10px;overflow:hidden}
+.card.new{border-color:var(--acc)}
+.head{display:flex;gap:10px;padding:12px;cursor:pointer;align-items:flex-start}
+.l{flex:1;min-width:0}
+.t1{font-weight:650;font-size:15.5px}
+.t1 .p{font-weight:700}
+.t2{color:var(--mut);font-size:13px;margin-top:2px}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tag{font-size:11.5px;padding:2px 7px;border-radius:6px;background:var(--chip);color:var(--ink);font-weight:600;white-space:nowrap}
+.tag.draft{background:#ffe8a3;color:#5a4300}.tag.likely{background:#fff0c9;color:#6b5200}
+.tag.own{background:var(--tag-o);color:#fff}.tag.ag{background:var(--tag-a);color:#fff}.tag.dev{background:var(--tag-d);color:#fff}
+.tag.new{background:var(--acc);color:var(--acc-ink)}.tag.drop{background:#d9302522;color:var(--bad)}
+.tag.hot{background:#ff6b5e22;color:var(--bad)}
+.r{text-align:right;flex:none}
+.mg{font-size:19px;font-weight:750;line-height:1.1}
+.mg small{display:block;font-size:11px;color:var(--mut);font-weight:500;margin-top:2px}
+.g{color:var(--good)}.o{color:var(--ok)}.m{color:var(--mid)}.b{color:var(--bad)}.n{color:var(--mut)}
+.star{font-size:18px;opacity:.35;margin-top:6px;cursor:pointer;user-select:none}.star.on{opacity:1;color:var(--acc)}
+.det{display:none;border-top:1px solid var(--line);padding:12px;background:color-mix(in srgb,var(--card) 92%,var(--bg))}
+.card.open .det{display:block}
+.desc{font-size:13px;color:var(--mut);margin:0 0 10px;word-break:break-word}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.fld label{display:block;font-size:11.5px;color:var(--mut);margin-bottom:2px}
+.fld input{width:100%;padding:8px 9px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px}
+.hint{font-size:12px;color:var(--mut);margin:4px 0 8px}
+.sc{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+.sc button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 4px;font:inherit;font-size:12px;cursor:pointer}
+.sc button.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.sc b{display:block;font-size:16px;margin-top:2px}
+.brk{font-size:12.5px;color:var(--mut);line-height:1.6}
+.brk b{color:var(--ink)}
+.lnk{display:inline-block;margin-top:8px;color:var(--ink);font-weight:600;font-size:13.5px}
+.more{display:block;width:100%;padding:11px;border:0;border-radius:12px;background:var(--chip);color:var(--ink);font:inherit;cursor:pointer}
+.empty{text-align:center;color:var(--mut);padding:30px 10px}
+#set{display:none;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:0 0 12px}
+#set.open{display:block}
+#set h3{margin:12px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+#set h3:first-child{margin-top:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.refrow{display:grid;grid-template-columns:1.5fr .55fr .5fr .55fr .55fr .6fr auto;gap:5px;margin-bottom:6px;align-items:center}
+.refrow input{width:100%;padding:6px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px}
+.refhd{display:grid;grid-template-columns:1.5fr .55fr .5fr .55fr .55fr .6fr auto;gap:5px;font-size:10.5px;color:var(--mut);margin-bottom:2px}
+.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:10px;font:inherit;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>Крыша KZ · Актау</h1>
+    <button class="iconbtn" id="gear" title="Настройки">⚙</button>
+  </div>
+  <div class="sub" id="sub">загрузка…</div>
+</header>
+<nav id="stick"><div class="row" id="tabs"></div></nav>
+<main>
+  <div id="filters"><div class="row" id="rooms"></div><div class="row" id="cls"></div><div class="row" id="sell"></div><div class="row" id="misc"></div></div>
+  <div id="banners"></div>
+  <section id="set"></section>
+  <div id="list"></div>
+</main>
+
+<script src="calc.js"></script>
+<script>
+(function(){
+'use strict';
+var DEF = KZ.DEFAULTS;
+var LS = {
+  get:function(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
+/* ---------- состояние ---------- */
+var saved = LS.get('kz_state',{});
+var S = {
+  mkrs: saved.mkrs || ['17','18','19'],
+  tab: saved.tab || 'sel',
+  rooms: saved.rooms || [2],
+  cls: Object.assign({draft:true,likely:true,unknown:false,renovated:false}, saved.cls||{}),
+  sell: Object.assign({o:true,a:true,c:true,d:false}, saved.sell||{}),
+  sort: saved.sort || 'margin',
+  onlyNew: !!saved.onlyNew, onlyFav: !!saved.onlyFav,
+  costs: Object.assign({}, DEF.costs, saved.costs||{}, {reno:Object.assign({}, DEF.costs.reno, (saved.costs||{}).reno||{})}),
+  refs: saved.refs || JSON.parse(JSON.stringify(DEF.refs))
+};
+var OV = LS.get('kz_over',{});      // ручные правки по объявлениям
+var FAV = LS.get('kz_fav',{});
+var OPEN = {};                      // раскрытые карточки
+var LIMIT = 40;
+var D = null, STATUS = null, IDX = null;
+
+function save(){LS.set('kz_state',S)}
+function saveOv(){LS.set('kz_over',OV)}
+
+/* ---------- данные ---------- */
+function load(){
+  fetch('data.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
+    D = d; IDX = KZ.buildCompIndex(D.listings);
+    return fetch('status.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+  }).then(function(st){STATUS=st; renderAll()}).catch(function(e){
+    document.getElementById('sub').textContent='не удалось загрузить data.json';
+  });
+}
+
+/* ---------- утилиты ---------- */
+var MN={'янв':1,'фев':2,'мар':3,'апр':4,'мая':5,'июн':6,'июл':7,'авг':8,'сен':9,'окт':10,'ноя':11,'дек':12};
+function fm(x,d){if(x==null||isNaN(x))return '—';return x.toFixed(d==null?1:d).replace('.',',')}
+function fsg(x){return (x>=0?'+':'−')+fm(Math.abs(x))}
+function mkrKey(m){var r=/^(\d+)(.*)$/.exec(m||'');return r?[+r[1],r[2]]:[999,m||'']}
+function mkrSort(a,b){var x=mkrKey(a),y=mkrKey(b);return x[0]-y[0]||(x[1]<y[1]?-1:x[1]>y[1]?1:0)}
+function dshort(iso){var p=(iso||'').split('-');return p.length===3?(+p[2])+'.'+p[1]:''}
+function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/864e5)}
+function marginCls(v){if(v==null)return 'n';var c=S.costs;return v>=c.good?'g':v>=c.target?'o':v>=0?'m':'b'}
+function ctx(){return {costs:S.costs,refs:S.refs,idx:IDX}}
+
+/* ---------- фильтры ---------- */
+function passBase(l,skip){
+  if(l.ms)return false;
+  if(S.rooms.indexOf(l.r)<0)return false;
+  var sl=l.s==='?'?'a':l.s; if(!S.sell[sl])return false;
+  if(skip!=='cls'&&!S.cls[l.cl])return false;
+  if(S.onlyNew&&l.fs!==D.today)return false;
+  if(S.onlyFav&&!FAV[l.id])return false;
+  return true;
+}
+function passTab(l,tab){
+  if(tab==='all')return true;
+  if(tab==='sel')return S.mkrs.indexOf(l.m)>=0;
+  return l.m===tab;
+}
+
+/* ---------- рендер шапки ---------- */
+function chip(label,on,attrs,count){
+  return '<button class="chip'+(on?' on':'')+'" '+attrs+'>'+esc(label)+(count!=null?'<small>'+count+'</small>':'')+'</button>';
+}
+function renderHead(){
+  var upd=D.updated?new Date(D.updated):null;
+  var act=D.listings.filter(function(l){return !l.ms}).length;
+  document.getElementById('sub').textContent =
+    (D.sample?'ПРИМЕР · ':'')+(upd?'обновлено '+upd.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})+', '+upd.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+' · ':'')+
+    act+' объявлений · новых '+D.listings.filter(function(l){return l.fs===D.today&&!l.ms}).length;
+
+  var base=D.listings.filter(function(l){return passBase(l)});
+  var tabs=[['sel','Выбранные'+'']].concat(S.mkrs.slice().sort(mkrSort).map(function(m){return [m,m+' мкр']})).concat([['all','Весь город']]);
+  document.getElementById('tabs').innerHTML=tabs.map(function(t){
+    var c=base.filter(function(l){return passTab(l,t[0])}).length;
+    return chip(t[1],S.tab===t[0],'data-tab="'+esc(t[0])+'"',c);
+  }).join('');
+
+  document.getElementById('rooms').innerHTML='<span class="lbl">комнат</span>'+[1,2,3,4].map(function(r){
+    return chip(r+'к',S.rooms.indexOf(r)>=0,'data-room="'+r+'"');
+  }).join('');
+
+  var forCls=D.listings.filter(function(l){return !l.ms&&S.rooms.indexOf(l.r)>=0&&(S.sell[l.s==='?'?'a':l.s])&&passTab(l,S.tab)&&(!S.onlyNew||l.fs===D.today)&&(!S.onlyFav||FAV[l.id])});
+  var names=[['draft','Черновая'],['likely','Вероятно черновая'],['unknown','Не ясно'],['renovated','С ремонтом']];
+  document.getElementById('cls').innerHTML='<span class="lbl">отделка</span>'+names.map(function(n){
+    return chip(n[1],S.cls[n[0]],'data-cls="'+n[0]+'"',forCls.filter(function(l){return l.cl===n[0]}).length);
+  }).join('');
+
+  var sn=[['o','Хозяин'],['a','Специалист'],['c','Компания'],['d','Застройщик']];
+  document.getElementById('sell').innerHTML='<span class="lbl">кто продаёт</span>'+sn.map(function(n){
+    return chip(n[1],S.sell[n[0]],'data-sell="'+n[0]+'"');
+  }).join('');
+
+  document.getElementById('misc').innerHTML=chip('Только новые',S.onlyNew,'data-misc="new"')+chip('★ Избранное',S.onlyFav,'data-misc="fav"')+
+    '<select id="sortsel">'+[['margin','по марже'],['new','сначала новые'],['price','дешевле'],['ppm','дешевле за м²'],['area','больше площадь']].map(function(o){
+      return '<option value="'+o[0]+'"'+(S.sort===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>';
+}
+
+/* ---------- карточка ---------- */
+function evalL(l){return KZ.evaluate(l,OV[l.id],ctx())}
+function sellerTag(l){
+  if(l.s==='o')return '<span class="tag own">Хозяин</span>';
+  if(l.s==='a')return '<span class="tag ag">Специалист</span>';
+  if(l.s==='c')return '<span class="tag ag">Компания</span>';
+  if(l.s==='d')return '<span class="tag dev">Застройщик</span>';
+  return '';
+}
+function clsTag(l){
+  if(l.cl==='draft')return '<span class="tag draft">ЧЕРНОВАЯ</span>';
+  if(l.cl==='likely')return '<span class="tag likely">вероятно черновая</span>';
+  if(l.cl==='unknown')return '<span class="tag">отделка ?</span>';
+  return '<span class="tag">'+esc(l.st||'с ремонтом')+'</span>';
+}
+function dropInfo(l){
+  var ph=l.ph||[];if(ph.length<2)return null;
+  var last=ph[ph.length-1][1],prev=ph[ph.length-2][1];
+  return last<prev?(prev-last)/1e6:null;
+}
+function cardHtml(l){
+  var ev=evalL(l),isNew=l.fs===D.today,open=!!OPEN[l.id];
+  var drop=dropInfo(l);
+  var addr=(l.m?l.m+' мкр':'')+(l.h?', д. '+l.h:'');
+  var mg=ev.margin==null?'<div class="mg n">—<small>задай цену продажи</small></div>':
+    '<div class="mg '+marginCls(ev.margin)+'">'+fsg(ev.margin)+' млн<small>маржа · '+({fact:'по факту',high:'ДКП завышен',low:'ДКП занижен'})[ev.scen]+'</small></div>';
+  return '<div class="card'+(isNew?' new':'')+(open?' open':'')+'" data-id="'+l.id+'">'+
+   '<div class="head" data-toggle="'+l.id+'"><div class="l">'+
+     '<div class="t1">'+l.r+'к · '+fm(l.a)+' м² · <span class="p">'+fm(l.p/1e6)+' млн</span></div>'+
+     '<div class="t2">'+esc(addr)+(l.zk?' · '+esc(l.zk):'')+' · '+(l.f?l.f+(l.ft?'/'+l.ft:'')+' эт.':'')+' · '+Math.round(l.p/l.a/1000)+' тыс/м²</div>'+
+     '<div class="tags">'+(isNew?'<span class="tag new">НОВОЕ</span>':'')+clsTag(l)+sellerTag(l)+
+       (drop?'<span class="tag drop">↓ −'+fm(drop)+' млн</span>':'')+
+       ((l.fl||[]).indexOf('cash')>=0?'<span class="tag hot">наличка</span>':'')+
+       ((l.fl||[]).indexOf('urgent')>=0||(l.fl||[]).indexOf('torg')>=0?'<span class="tag hot">срочно/торг</span>':'')+
+     '</div></div>'+
+     '<div class="r">'+mg+'<div class="star'+(FAV[l.id]?' on':'')+'" data-fav="'+l.id+'">★</div></div></div>'+
+   (open?detHtml(l,ev):'')+'</div>';
+}
+function detHtml(l,ev){
+  var ov=OV[l.id]||{};
+  var srcTxt='';
+  if(ev.src==='эталон')srcTxt='эталон: '+esc(ev.info.name);
+  else if(ev.src==='авто')srcTxt='авто: самая низкая из '+ev.info.n+' похожих готовых '+ev.info.where+' (от '+fm(ev.info.min)+' до '+fm(ev.info.max)+', медиана '+fm(ev.info.med)+')';
+  else if(ev.src==='ручная')srcTxt='введено вручную';
+  else srcTxt='нет похожих готовых квартир для подсказки — введи цену сам';
+  var sc=ev.all;
+  var names={fact:'По факту',high:'ДКП завышен',low:'ДКП занижен'};
+  var scHtml=sc?['fact','high','low'].map(function(k){
+    return '<button data-scen="'+k+'" data-id="'+l.id+'" class="'+(ev.scen===k?'on':'')+'">'+names[k]+'<b class="'+marginCls(sc[k].margin)+'">'+fsg(sc[k].margin)+'</b></button>';
+  }).join(''):'';
+  var cur=ev.cur;
+  var brk=sc?('Покупка <b>'+fm(ev.P)+'</b> + ремонт <b>'+fm(ev.reno)+'</b> + риелтор <b>'+fm(S.costs.realtor)+'</b> = затраты <b>'+fm(sc.cost)+'</b><br>'+
+    'ДКП покупки <b>'+fm(cur.dkp)+'</b> → налог '+Math.round(S.costs.tax*100)+'% × (продажа '+fm(ev.S)+' − '+fm(cur.dkp)+') = <b>'+fm(cur.tax)+'</b><br>'+
+    'Маржа = '+fm(ev.S)+' − '+fm(sc.cost)+' − '+fm(cur.tax)+' = <b class="'+marginCls(cur.margin)+'">'+fsg(cur.margin)+' млн</b>'):'';
+  var ph=(l.ph||[]).map(function(p){return dshort(p[0])+' — '+fm(p[1]/1e6)+' млн'}).join(' → ');
+  return '<div class="det">'+
+    (l.ds?'<p class="desc">'+esc(l.ds)+'</p>':'')+
+    '<div class="grid">'+
+      '<div class="fld"><label>Цена продажи, млн</label><input inputmode="decimal" data-ov="sale" data-id="'+l.id+'" value="'+(ov.sale!=null&&ov.sale!==''?esc(ov.sale):(ev.S!=null?fm(ev.S,2).replace(',','.'):''))+'"></div>'+
+      '<div class="fld"><label>Цена покупки, млн</label><input inputmode="decimal" data-ov="buy" data-id="'+l.id+'" value="'+(ov.buy!=null&&ov.buy!==''?esc(ov.buy):fm(l.p/1e6,2).replace(',','.'))+'"></div>'+
+    '</div>'+
+    '<div class="hint">'+srcTxt+' <a href="#" data-reset="'+l.id+'" style="color:inherit">сбросить правки</a></div>'+
+    (sc?'<div class="sc">'+scHtml+'</div>':'')+
+    (ev.scen==='low'&&sc?'<div class="grid"><div class="fld"><label>ДКП покупки (занижен), млн</label><input inputmode="decimal" data-ov="dkp" data-id="'+l.id+'" value="'+(ov.dkp!=null&&ov.dkp!==''?esc(ov.dkp):S.costs.dkpLow)+'"></div></div>':'')+
+    (sc?'<div class="brk" id="brk'+l.id+'">'+brk+'</div>':'')+
+    (ph&&(l.ph||[]).length>1?'<div class="hint">История цены: '+ph+'</div>':'')+
+    '<div class="hint">Видим с '+dshort(l.fs)+(l.d?' · на крыше: '+esc(l.d):'')+(l.y?' · '+l.y+' г.п.':'')+(l.b?' · '+esc(l.b):'')+'</div>'+
+    '<a class="lnk" target="_blank" rel="noopener" href="https://krisha.kz/a/show/'+l.id+'">Открыть на крыше →</a>'+
+  '</div>';
+}
+
+/* ---------- список ---------- */
+function sorted(arr){
+  var ev={};arr.forEach(function(l){ev[l.id]=evalL(l)});
+  var by={
+    margin:function(a,b){var x=ev[a.id].margin,y=ev[b.id].margin;if(x==null&&y==null)return a.p/a.a-b.p/b.a;if(x==null)return 1;if(y==null)return -1;return y-x},
+    new:function(a,b){return (b.fs>a.fs?1:b.fs<a.fs?-1:b.id-a.id)},
+    price:function(a,b){return a.p-b.p},
+    ppm:function(a,b){return a.p/a.a-b.p/b.a},
+    area:function(a,b){return b.a-a.a}
+  };
+  return arr.slice().sort(by[S.sort]||by.margin);
+}
+function renderList(){
+  var arr=D.listings.filter(function(l){return passBase(l)&&passTab(l,S.tab)});
+  var el=document.getElementById('list');
+  if(!arr.length){el.innerHTML='<div class="empty">Нет объявлений по этим фильтрам.<br>Попробуй включить «Вероятно черновая» или «Не ясно».</div>';return}
+  var s=sorted(arr),shown=s.slice(0,LIMIT);
+  el.innerHTML=shown.map(cardHtml).join('')+(s.length>LIMIT?'<button class="more" data-more="1">Показать ещё ('+(s.length-LIMIT)+')</button>':'');
+}
+
+/* ---------- настройки ---------- */
+function renderSettings(){
+  var all={};D.listings.forEach(function(l){if(l.m)all[l.m]=(all[l.m]||0)+1});
+  var ms=Object.keys(all).sort(mkrSort);
+  var c=S.costs;
+  function cin(k,label,val){return '<div class="fld"><label>'+label+'</label><input inputmode="decimal" data-cost="'+k+'" value="'+val+'"></div>'}
+  document.getElementById('set').innerHTML=
+   '<h3>Микрорайоны во вкладках</h3><div class="chips">'+ms.map(function(m){
+      return chip(m,S.mkrs.indexOf(m)>=0,'data-mkr="'+esc(m)+'"',all[m])}).join('')+'</div>'+
+   '<h3>Расходы флиппинга, млн ₸</h3><div class="cgrid">'+
+     cin('reno1','Ремонт 1к',c.reno[1])+cin('reno2','Ремонт 2к',c.reno[2])+cin('reno3','Ремонт 3к',c.reno[3])+cin('reno4','Ремонт 4к',c.reno[4])+
+     cin('realtor','Риелтор',c.realtor)+cin('tax','Налог, %',Math.round(c.tax*100))+cin('dkpLow','ДКП «занижен»',c.dkpLow)+
+     cin('target','Маржа ок, от',c.target)+cin('good','Маржа отлично, от',c.good)+'</div>'+
+   '<div class="hint">Ремонт 3к и 4к — ориентир, поправь под себя.</div>'+
+   '<h3>Эталоны цены продажи</h3><div class="hint">Работают раньше авто-подсказки: мкр + комнаты + площадь → цена продажи.</div>'+
+   '<div class="refhd"><span>Название</span><span>мкр</span><span>комн.</span><span>м² от</span><span>м² до</span><span>цена, млн</span><span></span></div>'+
+   S.refs.map(function(r,i){return '<div class="refrow">'+
+     '<input data-ref="'+i+'" data-f="name" value="'+esc(r.name)+'">'+
+     '<input data-ref="'+i+'" data-f="mkr" value="'+esc(r.mkr)+'">'+
+     '<input data-ref="'+i+'" data-f="rooms" inputmode="numeric" value="'+esc(r.rooms)+'">'+
+     '<input data-ref="'+i+'" data-f="amin" inputmode="decimal" value="'+esc(r.amin)+'">'+
+     '<input data-ref="'+i+'" data-f="amax" inputmode="decimal" value="'+esc(r.amax)+'">'+
+     '<input data-ref="'+i+'" data-f="price" inputmode="decimal" value="'+esc(r.price)+'">'+
+     '<button class="btn" data-refdel="'+i+'">✕</button></div>'}).join('')+
+   '<button class="btn" data-refadd="1">+ эталон</button> <button class="btn" data-resetall="1">Сбросить настройки</button>';
+}
+
+function renderBanners(){
+  var h='';
+  if(D.sample)h+='<div class="banner warn">Это пример данных от 17 окт. Настоящие объявления появятся после первого ежедневного сбора (GitHub → Actions).</div>';
+  if(STATUS&&STATUS.ok===false)h+='<div class="banner err">Последний сбор не удался: '+esc(STATUS.error||'ошибка')+'. Показаны данные предыдущего сбора.</div>';
+  document.getElementById('banners').innerHTML=h;
+}
+function renderAll(){renderHead();renderBanners();renderList();if(document.getElementById('set').classList.contains('open'))renderSettings()}
+
+/* ---------- события ---------- */
+function num(v){v=String(v).replace(',','.').replace(/[^\d.\-]/g,'');return v===''||isNaN(+v)?null:+v}
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-tab],[data-room],[data-cls],[data-sell],[data-misc],[data-toggle],[data-fav],[data-scen],[data-mkr],[data-more],[data-reset],[data-refadd],[data-refdel],[data-resetall],#gear');
+  if(!t)return;
+  if(t.id==='gear'){var s=document.getElementById('set');s.classList.toggle('open');if(s.classList.contains('open'))renderSettings();return}
+  if(t.dataset.tab!=null){S.tab=t.dataset.tab;LIMIT=40}
+  else if(t.dataset.room!=null){var r=+t.dataset.room,i=S.rooms.indexOf(r);if(i>=0){if(S.rooms.length>1)S.rooms.splice(i,1)}else S.rooms.push(r)}
+  else if(t.dataset.cls!=null){S.cls[t.dataset.cls]=!S.cls[t.dataset.cls]}
+  else if(t.dataset.sell!=null){S.sell[t.dataset.sell]=!S.sell[t.dataset.sell]}
+  else if(t.dataset.misc!=null){if(t.dataset.misc==='new')S.onlyNew=!S.onlyNew;else S.onlyFav=!S.onlyFav}
+  else if(t.dataset.mkr!=null){var m=t.dataset.mkr,j=S.mkrs.indexOf(m);if(j>=0)S.mkrs.splice(j,1);else S.mkrs.push(m)}
+  else if(t.dataset.more){LIMIT+=40}
+  else if(t.dataset.fav!=null){e.stopPropagation();var id=t.dataset.fav;if(FAV[id])delete FAV[id];else FAV[id]=1;LS.set('kz_fav',FAV)}
+  else if(t.dataset.toggle!=null){var id2=t.dataset.toggle;OPEN[id2]=!OPEN[id2]}
+  else if(t.dataset.scen!=null){var id3=t.dataset.id;OV[id3]=OV[id3]||{};OV[id3].scen=t.dataset.scen;saveOv()}
+  else if(t.dataset.reset!=null){e.preventDefault();delete OV[t.dataset.reset];saveOv()}
+  else if(t.dataset.refadd!=null){S.refs.push({id:'r'+Date.now(),name:'Новый эталон',mkr:'',rooms:2,amin:0,amax:999,price:0})}
+  else if(t.dataset.refdel!=null){S.refs.splice(+t.dataset.refdel,1)}
+  else if(t.dataset.resetall!=null){if(confirm('Сбросить все настройки и правки цен?')){LS.set('kz_state',{});LS.set('kz_over',{});location.reload();return}}
+  save();renderAll();
+});
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(t.dataset.ov){ // правка цен прямо в карточке: пересчёт без перерисовки (чтобы не терять фокус)
+    var id=t.dataset.id;OV[id]=OV[id]||{};OV[id][t.dataset.ov]=t.value.trim()===''?'':String(t.value).replace(',','.');saveOv();
+    var l=D.listings.filter(function(x){return String(x.id)===String(id)})[0];
+    var ev=evalL(l),b=document.getElementById('brk'+id);
+    var card=document.querySelector('.card[data-id="'+id+'"] .mg');
+    if(card&&ev.margin!=null){card.className='mg '+marginCls(ev.margin);card.firstChild.textContent=fsg(ev.margin)+' млн'}
+    if(b&&ev.cur){var sc=ev.all,cur=ev.cur;b.innerHTML='Покупка <b>'+fm(ev.P)+'</b> + ремонт <b>'+fm(ev.reno)+'</b> + риелтор <b>'+fm(S.costs.realtor)+'</b> = затраты <b>'+fm(sc.cost)+'</b><br>ДКП покупки <b>'+fm(cur.dkp)+'</b> → налог '+Math.round(S.costs.tax*100)+'% × (продажа '+fm(ev.S)+' − '+fm(cur.dkp)+') = <b>'+fm(cur.tax)+'</b><br>Маржа = '+fm(ev.S)+' − '+fm(sc.cost)+' − '+fm(cur.tax)+' = <b class="'+marginCls(cur.margin)+'">'+fsg(cur.margin)+' млн</b>'}
+    var btns=document.querySelectorAll('.card[data-id="'+id+'"] .sc button');
+    if(ev.all)btns.forEach(function(bt){var k=bt.dataset.scen,bb=bt.querySelector('b');bb.className=marginCls(ev.all[k].margin);bb.textContent=fsg(ev.all[k].margin)});
+  }
+  else if(t.dataset.cost){var k=t.dataset.cost,v=num(t.value);if(v==null)return;
+    if(k.indexOf('reno')===0)S.costs.reno[k.slice(4)]=v;else if(k==='tax')S.costs.tax=v/100;else S.costs[k]=v;save();renderHead();renderList()}
+  else if(t.dataset.ref!=null){var r=S.refs[+t.dataset.ref],f=t.dataset.f;
+    if(f==='name'||f==='mkr')r[f]=t.value.trim();else{var n=num(t.value);r[f]=n==null?0:n}
+    save();renderList()}
+});
+document.addEventListener('change',function(e){
+  if(e.target.id==='sortsel'){S.sort=e.target.value;save();renderList()}
+});
+
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){})}
+load();
+})();
+</script>
+</body>
+</html>
