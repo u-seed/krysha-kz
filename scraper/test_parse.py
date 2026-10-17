@@ -104,6 +104,23 @@ cards, soup = k.parse_page(html, "Актау")
 check("8.count", len(cards), 1); check("8.id", cards[0]["id"], 111); check("8.cls", cards[0]["cl"], "draft")
 check("8.total", k.found_total(soup), 11089)
 
+# 8b. другая вёрстка: нет классов a-card, карточка = вложенные div; боковой блок «Горячие предложения в…» игнорируется
+html2 = """
+<html><body><main>
+ <div class="x1"><div class="x2"><div class="x3"><a href="/a/show/501"><span>3-комнатная квартира · 81 м² · 7/7 этаж</span></a></div>
+   <div class="x4"><span>33 000 000 ₸</span></div><div class="x5">41-й мкр 17</div><p>2026 г.п., состояние: черновая отделка</p></div>
+   <footer><b>Хозяин недвижимости</b><i>Актау</i><i>17 окт.</i></footer></div>
+ <div class="x1"><div class="x2"><a href="/a/show/502">2-комнатная квартира · 70 м² · 2/5 этаж</a><div>25 000 000 ₸</div><div>17-й мкр 3</div>
+   <p>без ремонта</p></div><footer><b>Специалист</b><i>Актау</i></footer></div>
+</main>
+<h2>Горячие предложения в Мангистауской обл.</h2>
+<div><a href="/a/show/503">2-комнатная квартира · 64 м² · 4/9 этаж</a><div>32 300 000 ₸</div><div>17-й мкр</div></div>
+</body></html>"""
+cards2, _ = k.parse_page(html2, "Актау")
+by2 = {c["id"]: c for c in cards2}
+check("8b.ids", sorted(by2), [501, 502]); check("8b.seller", (by2[501]["s"], by2[502]["s"]), ("o", "a"))
+check("8b.cls", (by2[501]["cl"], by2[502]["cl"]), ("draft", "likely")); check("8b.mkr", by2[501]["m"], "41")
+
 # 9. адреса
 check("9a", k.parse_address('мкр "Самал"'), ("Самал", None))
 check("9b", k.parse_address("Микрорайон 29а 170 — 29 а жк Adal Town"), ("29А", "170"))

@@ -292,48 +292,98 @@ def parse_card_lines(lines, city_name="Актау"):
     }
 
 
-def parse_page(html, city_name="Актау"):
-    """HTML страницы выдачи -> список карточек. Основной способ: контейнер a-card; запасной: якоря /a/show/."""
+SHOW_ID = re.compile(r"/a/show/(\d+)")
+
+
+def _ids_in(node):
+    out = set()
+    for a in node.select('a[href*="/a/show/"]'):
+        m = SHOW_ID.search(a.get("href", ""))
+        if m:
+            out.add(m.group(1))
+    return out
+
+
+def _after_cut(soup):
+    """Узлы после заголовка «Горячие предложения в …» (боковой блок с другими городами) — их пропускаем."""
+    cut = soup.find(string=re.compile(r"Горячие предложения в"))
+    if cut is None:
+        return set()
+    try:
+        return set(id(x) for x in cut.find_all_next())
+    except Exception:  # noqa: BLE001
+        return set()
+
+
+def _max_container(a):
+    """Самый большой контейнер вокруг якоря, внутри которого только одно объявление."""
+    m = SHOW_ID.search(a.get("href", ""))
+    if not m:
+        return None
+    cid = m.group(1)
+    node = a
+    for _ in range(14):
+        par = node.parent
+        if par is None or par.name in ("body", "html", "[document]"):
+            break
+        if _ids_in(par) - {cid}:
+            break
+        node = par
+    return node
+
+
+def parse_page(html, city_name="Актау", diag=None):
+    """HTML страницы выдачи -> (карточки, soup). Сначала контейнеры a-card, затем запасной разбор по якорям."""
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "lxml") if _has_lxml() else BeautifulSoup(html, "html.parser")
-    cards = []
-    seen = set()
+    after = _after_cut(soup)
 
-    containers = soup.select("div.a-card[data-id]")
-    if not containers:
-        containers = []
-        for a in soup.select('a[href*="/a/show/"]'):
-            node = a
-            for _ in range(8):
-                node = node.parent
-                if node is None:
-                    break
-                txt = node.get_text(" ", strip=True)
-                if "₸" in txt and TITLE.search(txt):
-                    containers.append(node)
-                    break
+    page_ids = set()
+    for a in soup.select('a[href*="/a/show/"]'):
+        if id(a) in after:
+            continue
+        m = SHOW_ID.search(a.get("href", ""))
+        if m:
+            page_ids.add(int(m.group(1)))
 
-    for node in containers:
-        a = node.select_one('a[href*="/a/show/"]')
-        if a is None:
-            continue
-        m = re.search(r"/a/show/(\d+)", a.get("href", ""))
-        if not m:
-            continue
-        cid = int(m.group(1))
-        if cid in seen:
-            continue
+    cards = {}
+
+    def take(node, cid):
+        if cid in cards or id(node) in after:
+            return
         text = node.get_text("\n", strip=True)
         item = parse_card_lines(lines_of(text), city_name)
         if not item:
-            continue
-        if not item.pop("_city_ok", False):
-            continue
+            return
+        ok = item.pop("_city_ok", False)
         item.pop("_id", None)
+        if not ok and item.get("m") is None:
+            return  # ни города, ни микрорайона — скорее всего чужая карточка
         item["id"] = cid
-        seen.add(cid)
-        cards.append(item)
-    return cards, soup
+        cards[cid] = item
+
+    for node in soup.select("div.a-card[data-id], article.a-card, [class*=a-card][data-id]"):
+        a = node.select_one('a[href*="/a/show/"]')
+        m = SHOW_ID.search(a.get("href", "")) if a else None
+        if m:
+            take(node, int(m.group(1)))
+
+    if page_ids and len(cards) < 0.6 * len(page_ids):
+        for a in soup.select('a[href*="/a/show/"]'):
+            m = SHOW_ID.search(a.get("href", ""))
+            if not m or id(a) in after:
+                continue
+            cid = int(m.group(1))
+            if cid in cards:
+                continue
+            node = _max_container(a)
+            if node is not None:
+                take(node, cid)
+
+    if diag is not None:
+        diag.update({"anchors": len(page_ids), "parsed": len(cards), "html_len": len(html),
+                     "a_card_nodes": len(soup.select("[class*=a-card]")), "cut": bool(after)})
+    return list(cards.values()), soup
 
 
 def _has_lxml():
@@ -392,11 +442,13 @@ def fetch(sess, url, params=None, retries=3):
 #  Сбор и слияние с прошлым снимком
 # --------------------------------------------------------------------------
 
+DIAG = {"samples": [], "pages": []}
+
+
 def scrape(cfg, log=print):
     sess = make_session()
     found = {}
     pages_total = 0
-    debug_samples = []
     for rooms in cfg["rooms"]:
         page = 1
         expected_pages = None
@@ -406,19 +458,26 @@ def scrape(cfg, log=print):
             if page > 1:
                 params["page"] = page
             html = fetch(sess, cfg["list_url"], params)
-            cards, soup = parse_page(html, cfg["city_name"])
+            d = {}
+            cards, soup = parse_page(html, cfg["city_name"], d)
             pages_total += 1
+            title = (soup.title.string if soup.title and soup.title.string else "")[:70]
+            if len(DIAG["pages"]) < 60:
+                DIAG["pages"].append([rooms, page, d.get("anchors"), d.get("parsed"), d.get("a_card_nodes"), d.get("html_len"), title])
             if page == 1:
                 total = found_total(soup)
                 if total:
                     expected_pages = int(math.ceil(total / 20.0)) + 1
-                log("rooms=%s: найдено на сайте %s, страниц ~%s" % (rooms, total, expected_pages))
-                if not cards:
-                    title = (soup.title.string if soup.title else "")
-                    debug_samples.append(html[:6000])
-                    raise Blocked("первая страница без карточек (title=%r) — блокировка или смена вёрстки" % title)
-                for c in html.split('class="a-card')[1:3]:
-                    debug_samples.append(c[:3500])
+                log("rooms=%s: найдено на сайте %s, страниц ~%s, разобрано карточек %s из %s" % (
+                    rooms, total, expected_pages, d.get("parsed"), d.get("anchors")))
+                if cards:
+                    for c in html.split('class="a-card')[1:3]:
+                        DIAG["samples"].append(("card", c[:3500]))
+                else:
+                    body = html[html.find("<body"):] if "<body" in html else html
+                    DIAG["samples"].append(("page_without_cards", body[:7000]))
+                    raise Blocked("первая страница без карточек (title=%r, якорей %s, a-card %s, длина %s) — блокировка или смена вёрстки" % (
+                        title, d.get("anchors"), d.get("a_card_nodes"), d.get("html_len")))
             if not cards:
                 break
             new = [c for c in cards if c["id"] not in found]
@@ -435,7 +494,7 @@ def scrape(cfg, log=print):
             page += 1
             time.sleep(random.uniform(cfg["delay_min"], cfg["delay_max"]))
         log("rooms=%s: всего собрано %d объявлений" % (rooms, len(found)))
-    return found, pages_total, debug_samples
+    return found, pages_total
 
 
 def today_str(now=None):
@@ -550,6 +609,16 @@ def fetch_details(cfg, data, log=print):
     log("detail: обработано %d" % done)
 
 
+def write_debug(dbg):
+    dbg.mkdir(parents=True, exist_ok=True)
+    for old in dbg.glob("*"):
+        if old.is_file():
+            old.unlink()
+    for i, (kind, body) in enumerate(DIAG["samples"]):
+        (dbg / ("%d_%s.html" % (i, kind))).write_text(body, encoding="utf-8")
+    (dbg / "pages.json").write_text(json.dumps(DIAG["pages"], ensure_ascii=False), encoding="utf-8")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT), help="куда писать data.json/status.json")
@@ -559,23 +628,20 @@ def main():
     cfg = dict(DEFAULT_CFG)
     cfg.update(load_json(ROOT / "config.json") or {})
     out = Path(args.out)
+    dbg = Path(args.debug_dir)
     now = datetime.now(TZ)
     status = {"ok": False, "time": now.strftime("%Y-%m-%dT%H:%M:%S%z")}
 
     prev = load_json(out / "data.json")
     try:
-        found, pages, samples = scrape(cfg)
+        found, pages = scrape(cfg)
     except Blocked as e:
         status["error"] = str(e)
         write_json(out / "status.json", status)
-        dbg = Path(args.debug_dir)
+        write_debug(dbg)
         print("ОШИБКА: %s" % e, file=sys.stderr)
         sys.exit(2)
-
-    dbg = Path(args.debug_dir)
-    dbg.mkdir(parents=True, exist_ok=True)
-    for i, s in enumerate(samples):
-        (dbg / ("sample_%d.html" % i)).write_text(s, encoding="utf-8")
+    write_debug(dbg)
 
     prev_real = prev if prev and not prev.get("sample") else None
     if prev_real:
