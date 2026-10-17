@@ -62,10 +62,12 @@ MKR_NAMED = re.compile(r"мкр\.?\s*[\"«“]([^\"»”]+)[\"»”]", re.I)
 
 HOUSE = re.compile(r"(?<![\d/-])(\d{1,3}(?:[/-]\d{1,3})?)(?![\dа-яa-z/-])", re.I)
 
+SEP = r"\s*(?:\|\s*)?·\s*(?:\|\s*)?"
 TITLE = re.compile(
-    r"(\d)\s*-?\s*комнатн\w*\s+квартира\s*·\s*([\d.,]+)\s*м²(?:\s*·\s*(\d{1,2})(?:/(\d{1,2}))?\s*этаж)?",
+    r"(\d)\s*-?\s*комнатн\w*\s+квартира" + SEP + r"([\d.,]+)\s*(?:\|\s*)?м[²2]"
+    r"(?:" + SEP + r"(\d{1,2})(?:/(\d{1,2}))?\s*(?:\|\s*)?этаж)?",
     re.I)
-PRICE = re.compile(r"(от\s+)?(\d[\d   ]{3,})\s*₸")
+PRICE = re.compile(r"(от\s+)?(\d[\d\s]{3,}?)\s*(?:\|\s*)?₸")
 DATE_LINE = re.compile(
     r"^(\d{1,2}\s+(?:янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек)\.?|сегодня|вчера)$", re.I)
 STATE = re.compile(r"состояние:\s*([^,|\n]+)", re.I)
@@ -165,15 +167,20 @@ def lines_of(card_text):
     out = []
     for ln in card_text.split("\n"):
         ln = norm_ws(ln)
-        if ln:
-            out.append(ln)
+        if not ln:
+            continue
+        if out and ln in ("₸", "тг", "тг.", "м²", "м2", "этаж"):
+            out[-1] = out[-1] + " " + ln
+            continue
+        out.append(ln)
     return out
 
 
 def parse_card_lines(lines, city_name="Актау"):
     """Разбор карточки по списку строк текста. Возвращает dict или None."""
     blob = " | ".join(lines)
-    mt = TITLE.search(blob)
+    flat = " ".join(lines)  # для заголовка и цены: не зависит от того, как вёрстка раздробила текст по узлам
+    mt = TITLE.search(flat)
     if not mt:
         return None
     rooms = int(mt.group(1))
@@ -182,7 +189,7 @@ def parse_card_lines(lines, city_name="Актау"):
     floors = int(mt.group(4)) if mt.group(4) else None
 
     # цена: первая «N ₸» после заголовка
-    after_title = blob[mt.end():]
+    after_title = flat[mt.end():]
     mp = PRICE.search(after_title)
     if not mp:
         return None
@@ -200,7 +207,7 @@ def parse_card_lines(lines, city_name="Актау"):
             break
     if addr is None:
         # запасной вариант: кусок текста сразу после цены
-        addr = norm_ws(after_title[mp.end():].split("|")[0])
+        addr = norm_ws(after_title[mp.end():][:60])
         desc_start = len(lines)
 
     # описание: строки после адреса до служебных меток
@@ -232,11 +239,11 @@ def parse_card_lines(lines, city_name="Актау"):
     if developer and seller is None:
         seller = "d"
     if seller is None:
-        # запасной вариант: подстрока с меткой (на случай слепленных строк)
-        for label, code in SELLER_LABELS.items():
-            if re.search(r"(?:^|\| )%s(?: \||$)" % re.escape(label), blob, re.I):
-                seller = code
-                break
+        # запасной вариант: метка склеена с соседним текстом («Хозяин недвижимости Актау 17 окт.»)
+        if re.search(r"(?<![\wа-яё])хозяин недвижимости(?![\wа-яё])", blob, re.I):
+            seller = "o"
+        elif re.search(r"(?<![\wа-яё])специалист(?![\wа-яё])(?!\s+подтвердил)", blob, re.I):
+            seller = "a"
 
     mkr, house = parse_address(addr)
 
@@ -333,10 +340,12 @@ def _max_container(a):
 
 
 def parse_page(html, city_name="Актау", diag=None):
-    """HTML страницы выдачи -> (карточки, soup). Сначала контейнеры a-card, затем запасной разбор по якорям."""
+    """HTML страницы выдачи -> (карточки, soup). Сначала контейнеры карточек (data-product-id / a-card),
+    затем запасной разбор по якорям. Проблемные карточки (до 3) кладёт в diag['bad'] целиком с извлечённым текстом."""
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "lxml") if _has_lxml() else BeautifulSoup(html, "html.parser")
     after = _after_cut(soup)
+    bad = []
 
     page_ids = set()
     for a in soup.select('a[href*="/a/show/"]'):
@@ -351,22 +360,35 @@ def parse_page(html, city_name="Актау", diag=None):
     def take(node, cid):
         if cid in cards or id(node) in after:
             return
-        text = node.get_text("\n", strip=True)
-        item = parse_card_lines(lines_of(text), city_name)
+        lns = lines_of(node.get_text("\n", strip=True))
+        item = parse_card_lines(lns, city_name)
         if not item:
+            if len(bad) < 3:
+                bad.append({"id": cid, "why": "no_title_or_price", "lines": lns[:40], "html": str(node)[:6000]})
             return
         ok = item.pop("_city_ok", False)
         item.pop("_id", None)
         if not ok and item.get("m") is None:
+            if len(bad) < 3:
+                bad.append({"id": cid, "why": "no_city_no_mkr", "lines": lns[:40], "html": str(node)[:6000]})
             return  # ни города, ни микрорайона — скорее всего чужая карточка
         item["id"] = cid
         cards[cid] = item
 
-    for node in soup.select("div.a-card[data-id], article.a-card, [class*=a-card][data-id]"):
+    def card_id(node):
+        v = node.get("data-product-id") or node.get("data-id") or ""
+        if str(v).isdigit():
+            return int(v)
         a = node.select_one('a[href*="/a/show/"]')
         m = SHOW_ID.search(a.get("href", "")) if a else None
-        if m:
-            take(node, int(m.group(1)))
+        return int(m.group(1)) if m else None
+
+    for node in soup.select("[data-product-id], div.a-card[data-id], article.a-card, [class*=a-card][data-id]"):
+        if not node.select_one('a[href*="/a/show/"]'):
+            continue
+        cid = card_id(node)
+        if cid is not None:
+            take(node, cid)
 
     if page_ids and len(cards) < 0.6 * len(page_ids):
         for a in soup.select('a[href*="/a/show/"]'):
@@ -382,7 +404,8 @@ def parse_page(html, city_name="Актау", diag=None):
 
     if diag is not None:
         diag.update({"anchors": len(page_ids), "parsed": len(cards), "html_len": len(html),
-                     "a_card_nodes": len(soup.select("[class*=a-card]")), "cut": bool(after)})
+                     "a_card_nodes": len(soup.select("[class*=a-card]")), "cut": bool(after),
+                     "product_nodes": len(soup.select("[data-product-id]")), "bad": bad})
     return list(cards.values()), soup
 
 
@@ -463,16 +486,19 @@ def scrape(cfg, log=print):
             pages_total += 1
             title = (soup.title.string if soup.title and soup.title.string else "")[:70]
             if len(DIAG["pages"]) < 60:
-                DIAG["pages"].append([rooms, page, d.get("anchors"), d.get("parsed"), d.get("a_card_nodes"), d.get("html_len"), title])
+                DIAG["pages"].append([rooms, page, d.get("anchors"), d.get("parsed"), d.get("a_card_nodes"), d.get("html_len"), d.get("product_nodes"), title])
             if page == 1:
                 total = found_total(soup)
                 if total:
                     expected_pages = int(math.ceil(total / 20.0)) + 1
                 log("rooms=%s: найдено на сайте %s, страниц ~%s, разобрано карточек %s из %s" % (
                     rooms, total, expected_pages, d.get("parsed"), d.get("anchors")))
+                for b in d.get("bad", []):
+                    DIAG["samples"].append(("bad_card_%s_%s" % (rooms, b["id"]),
+                                            "<!-- причина: %s -->\n<!-- извлечённые строки:\n%s\n-->\n%s" % (
+                                                b["why"], "\n".join(b["lines"]).replace("-->", "--"), b["html"])))
                 if cards:
-                    for c in html.split('class="a-card')[1:3]:
-                        DIAG["samples"].append(("card", c[:3500]))
+                    DIAG["samples"].append(("first_parsed_%s" % rooms, json.dumps(cards[0], ensure_ascii=False, indent=1)))
                 else:
                     body = html[html.find("<body"):] if "<body" in html else html
                     DIAG["samples"].append(("page_without_cards", body[:7000]))
@@ -615,7 +641,8 @@ def write_debug(dbg):
         if old.is_file():
             old.unlink()
     for i, (kind, body) in enumerate(DIAG["samples"]):
-        (dbg / ("%d_%s.html" % (i, kind))).write_text(body, encoding="utf-8")
+        ext = "json" if kind.startswith("first_parsed") else "html"
+        (dbg / ("%d_%s.%s" % (i, kind, ext))).write_text(body, encoding="utf-8")
     (dbg / "pages.json").write_text(json.dumps(DIAG["pages"], ensure_ascii=False), encoding="utf-8")
 
 

@@ -121,6 +121,31 @@ by2 = {c["id"]: c for c in cards2}
 check("8b.ids", sorted(by2), [501, 502]); check("8b.seller", (by2[501]["s"], by2[502]["s"]), ("o", "a"))
 check("8b.cls", (by2[501]["cl"], by2[502]["cl"]), ("draft", "likely")); check("8b.mkr", by2[501]["m"], "41")
 
+# 8c. структура как на живой странице: карточка с data-product-id, значения раздроблены по span, «₸» отдельно
+html3 = """
+<html><body><div class="a-list">
+ <div class="a-card a-storage-live ddl_product" id="id-601" data-product-id="601">
+  <div class="a-card__inc"><a class="a-card__title" href="/a/show/601">2-комнатная квартира<span> · </span>83.5 м²<span> · </span>12/15 этаж</a>
+  <div class="a-card__price"><span>17 100 000</span> <span>₸</span></div>
+  <div class="a-card__subtitle">18-й мкр , 18 мкр 43/1</div>
+  <div class="a-card__text-preview">монолитный дом, 2026 г.п., потолки 3м., Квартира в черновой отделке</div>
+  <div class="a-card__owner-label"><span>Специалист</span></div>
+  <div class="card-stats"><span>Актау</span><span>17 окт.</span></div></div></div>
+ <div class="a-card a-storage-live ddl_product" id="id-602" data-product-id="602">
+  <a class="a-card__title" href="/a/show/602">2-комнатная квартира · 75 м² · 4/6 этаж</a>
+  <div class="a-card__price">20 000 000 ₸</div><div class="a-card__subtitle">29а мкр 162</div>
+  <div class="a-card__text-preview">состояние: черновая отделка</div>
+  <div class="a-card__owner-label">Хозяин недвижимости</div><div class="card-stats">Актау 17 окт.</div></div>
+</div><div>Найдено 11 089 объявлений</div></body></html>"""
+cards3, _ = k.parse_page(html3, "Актау")
+by3 = {c["id"]: c for c in cards3}
+check("8c.ids", sorted(by3), [601, 602])
+check("8c.price", (by3[601]["p"], by3[602]["p"]), (17100000, 20000000))
+check("8c.mkr", (by3[601]["m"], by3[601]["h"]), ("18", "43/1"))
+check("8c.seller", (by3[601]["s"], by3[602]["s"]), ("a", "o"))
+check("8c.cls", (by3[601]["cl"], by3[602]["cl"]), ("likely", "draft"))
+check("8c.floor", (by3[601]["f"], by3[601]["ft"], by3[601]["a"]), (12, 15, 83.5))
+
 # 9. адреса
 check("9a", k.parse_address('мкр "Самал"'), ("Самал", None))
 check("9b", k.parse_address("Микрорайон 29а 170 — 29 а жк Adal Town"), ("29А", "170"))
