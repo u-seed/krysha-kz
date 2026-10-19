@@ -161,6 +161,17 @@ MKR_TXT_B = re.compile(r"%s\s*(\d{1,2})\s*([%s])?(?![\d)\-а-яёa-z])" % (MKR_W
 # мкр с именем («Шыгыс 3», «Самал 2»): цифра после имени — часть названия, а не номер мкр
 NAMED_MKR = re.compile(r"(?:шыг[ыі]с|шығыс|самал|толкын|оймаш|акжелкен)\s*-?\s*\d+", re.I)
 EXCHANGE = re.compile(r"обмен|айырбас", re.I)
+# адрес продавца без слова «мкр»: «29 а 167», «29А167», «18 7» = мкр 29А дом 167, мкр 18 дом 7
+BARE_ADDR = re.compile(r"^\W*(\d{1,2})\s*([%s])?\s*[ ]?\s*(\d{1,3}(?:[/-]\d{1,3})?)\W*$" % LETTER, re.I)
+GLUED_ADDR = re.compile(r"^\W*(\d{1,2})([%s])(\d{1,3}(?:[/-]\d{1,3})?)\W*$" % LETTER, re.I)
+
+
+def _bare_addr(text):
+    """«29 а 167» / «29А167» / «18 7» -> (мкр, дом) или None. Только если это вся строка адреса."""
+    m = GLUED_ADDR.match(text or "") or BARE_ADDR.match(text or "")
+    if not m or not (1 <= int(m.group(1)) <= MKR_MAX):
+        return None
+    return norm_mkr(m.group(1), m.group(2)), m.group(3)
 # ориентиры, а не адрес: «рядом с 17 мкр», «обмен на 27 мкр», «напротив 16 мкрн»
 LANDMARK_BEFORE = re.compile(
     r"(?:^|[\s,.;:(—-])(?:рядом|возле|около|напротив|недалеко|близко|близ|вблизи|обмен\w*|между|соседн\w*|через|"
@@ -208,11 +219,18 @@ def resolve_mkr(addr, desc):
     main = (addr or "").split("—")[0]
     _, _, typed = main.partition(",")
     tm = _mkr_mentions(typed)
-    if tm and tm[0][0] != mkr:
-        mkr, src = tm[0][0], "a"
-        rest = typed[tm[0][2]:]
-        hs = HOUSE.findall(rest)
-        house = hs[-1] if hs else None
+    cand = None
+    if tm:
+        hs = HOUSE.findall(typed[tm[0][2]:])
+        cand = (tm[0][0], hs[-1] if hs else None)
+    else:
+        cand = _bare_addr(typed)
+    if cand and cand[0] != mkr:
+        mkr, house, src = cand[0], cand[1], "a"
+    if mkr is None:  # мкр на карте не выбран, а адрес — просто «29 а 167»
+        bare = _bare_addr(main)
+        if bare:
+            mkr, house, src = bare[0], bare[1], "a"
     dm = [x[0] for x in _mkr_mentions(desc, skip_landmarks=True)]
     if dm and mkr not in dm:
         best, cnt = dm[0], 0
@@ -694,7 +712,12 @@ def merge(prev_data, found, cfg, now=None):
             rec["ds"] = rec["ds"][:limit].rstrip() + "…"
 
     out.sort(key=lambda r: (r.get("fs", ""), r["id"]), reverse=True)
+    # base — день самого первого снимка: у его объявлений «первая находка» одна, и «свежие» там считаются по дате на крыше
+    base = prev_data.get("base") if prev and prev_data else None
+    if not base:
+        base = min([l["fs"] for l in prev.values() if l.get("fs")] or [today])
     data = {
+        "base": base,
         "updated": now.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "today": today,
         "city": cfg["city_name"],
@@ -785,11 +808,13 @@ def reprocess(out, cfg, log=print):
             n_fix += 1
         kept.append(rec)
     data["listings"] = kept
+    if not data.get("base"):
+        data["base"] = min([l["fs"] for l in kept if l.get("fs")] or [data.get("today")])
     data["count"] = len(kept)
     data["new_today"] = sum(1 for r in kept if r.get("fs") == data.get("today") and not r.get("ms"))
     write_json(out / "data.json", data)
     st = load_json(out / "status.json") or {}
-    st["excluded"] = n_ex
+    st["excluded"] = st.get("excluded", 0) + n_ex  # накопительно: прошлые убранные + эти
     write_json(out / "status.json", st)
     log("Переобработка: убрано ЖК из списка исключений %d, исправлен мкр у %d, осталось %d" % (n_ex, n_fix, len(kept)))
     return n_ex, n_fix

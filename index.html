@@ -30,6 +30,10 @@ h1{font-size:18px;margin:0;flex:1}
 .sub{font-size:12px;color:var(--mut)}
 .row{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none}
 .row::-webkit-scrollbar{display:none}
+.chip.big{font-weight:600;font-size:14.5px;padding:8px 16px}
+.chip.big.on{background:var(--good);color:#fff}
+#mode.row{flex-wrap:wrap;overflow:visible}
+.lbl.fresh{align-self:center;white-space:nowrap;text-transform:none}
 .chip{flex:none;border:0;background:var(--chip);color:var(--ink);padding:7px 12px;border-radius:999px;font:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap}
 .chip.on{background:var(--chip-on);color:var(--chip-on-ink);font-weight:600}
 .chip small{opacity:.7;margin-left:4px}
@@ -94,7 +98,7 @@ main{padding:10px 12px 40px;max-width:820px;margin:0 auto}
   </div>
   <div class="sub" id="sub">загрузка…</div>
 </header>
-<nav id="stick"><div class="row" id="tabs"></div></nav>
+<nav id="stick"><div class="row" id="mode"></div><div class="row" id="tabs"></div></nav>
 <main>
   <div id="filters"><div class="row" id="rooms"></div><div class="row" id="cls"></div><div class="row" id="sell"></div><div class="row" id="misc"></div></div>
   <div id="banners"></div>
@@ -122,7 +126,7 @@ var S = {
   cls: Object.assign({draft:true,likely:true,unknown:false,renovated:false}, saved.cls||{}),
   sell: Object.assign({o:true,a:true,c:true,d:false}, saved.sell||{}),
   sort: saved.sort || 'margin',
-  onlyNew: !!saved.onlyNew, onlyFav: !!saved.onlyFav,
+  fresh: !!saved.fresh, freshDays: saved.freshDays || 1, onlyFav: !!saved.onlyFav,
   costs: Object.assign({}, DEF.costs, saved.costs||{}, {reno:Object.assign({}, DEF.costs.reno, (saved.costs||{}).reno||{})}),
   refs: saved.refs || JSON.parse(JSON.stringify(DEF.refs))
 };
@@ -153,6 +157,20 @@ function mkrKey(m){var r=/^(\d+)(.*)$/.exec(m||'');return r?[+r[1],r[2]]:[999,m|
 function mkrSort(a,b){var x=mkrKey(a),y=mkrKey(b);return x[0]-y[0]||(x[1]<y[1]?-1:x[1]>y[1]?1:0)}
 function dshort(iso){var p=(iso||'').split('-');return p.length===3?(+p[2])+'.'+p[1]:''}
 function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/864e5)}
+/* «Свежие» = впервые найдены последним сбором (при сборе в 5–6 утра это вчерашний день) и за N дней назад.
+   Самый первый снимок (D.base): у всех объявлений «первая находка» одна, поэтому там берём дату публикации на крыше. */
+function isoAdd(iso,n){var d=new Date(iso+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+function postDate(l){
+  var s=(l.d||'').toLowerCase().trim();
+  if(s==='сегодня')return D.today;
+  if(s==='вчера')return isoAdd(D.today,-1);
+  var m=/^(\d{1,2})\s+([а-я]+)/.exec(s);if(!m)return null;
+  var mo=MN[m[2].slice(0,3)];if(!mo)return null;
+  var y=+D.today.slice(0,4),iso=y+'-'+('0'+mo).slice(-2)+'-'+('0'+m[1]).slice(-2);
+  return iso>D.today?(y-1)+iso.slice(4):iso;
+}
+function freshDate(l){return (D.base&&l.fs===D.base)?(postDate(l)||l.fs):l.fs}
+function isFresh(l){return freshDate(l)>=isoAdd(D.today,-(S.freshDays-1))}
 function marginCls(v){if(v==null)return 'n';var c=S.costs;return v>=c.good?'g':v>=c.target?'o':v>=0?'m':'b'}
 function ctx(){return {costs:S.costs,refs:S.refs,idx:IDX}}
 
@@ -162,7 +180,7 @@ function passBase(l,skip){
   if(S.rooms.indexOf(l.r)<0)return false;
   var sl=l.s==='?'?'a':l.s; if(!S.sell[sl])return false;
   if(skip!=='cls'&&!S.cls[l.cl])return false;
-  if(S.onlyNew&&l.fs!==D.today)return false;
+  if(skip!=='fresh'&&S.fresh&&!isFresh(l))return false;
   if(S.onlyFav&&!FAV[l.id])return false;
   return true;
 }
@@ -181,8 +199,15 @@ function renderHead(){
   var act=D.listings.filter(function(l){return !l.ms}).length;
   document.getElementById('sub').textContent =
     (D.sample?'ПРИМЕР · ':'')+(upd?'обновлено '+upd.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})+', '+upd.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+' · ':'')+
-    act+' объявлений · новых '+D.listings.filter(function(l){return l.fs===D.today&&!l.ms}).length;
+    act+' объявлений · новых '+D.listings.filter(function(l){return freshDate(l)===D.today&&!l.ms}).length;
 
+  var nFresh=D.listings.filter(function(l){return passBase(l,'fresh')&&passTab(l,S.tab)&&isFresh(l)}).length;
+  var cut=isoAdd(D.today,-(S.freshDays-1));
+  document.getElementById('mode').innerHTML=
+    '<button class="chip big'+(S.fresh?'':' on')+'" data-mode="all">Все объявления</button>'+
+    '<button class="chip big'+(S.fresh?' on':'')+'" data-mode="fresh">Свежие<small>'+nFresh+'</small></button>'+
+    (S.fresh?'<span class="lbl fresh">за</span>'+[1,2,3,7].map(function(n){return chip(n+' дн',S.freshDays===n,'data-fdays="'+n+'"')}).join('')+
+      '<span class="lbl fresh">'+(S.freshDays===1?dshort(D.today):dshort(cut)+'–'+dshort(D.today))+'</span>':'');
   var base=D.listings.filter(function(l){return passBase(l)});
   var tabs=[['sel','Выбранные'+'']].concat(S.mkrs.slice().sort(mkrSort).map(function(m){return [m,m+' мкр']})).concat([['all','Весь город']]);
   document.getElementById('tabs').innerHTML=tabs.map(function(t){
@@ -194,7 +219,7 @@ function renderHead(){
     return chip(r+'к',S.rooms.indexOf(r)>=0,'data-room="'+r+'"');
   }).join('');
 
-  var forCls=D.listings.filter(function(l){return !l.ms&&S.rooms.indexOf(l.r)>=0&&(S.sell[l.s==='?'?'a':l.s])&&passTab(l,S.tab)&&(!S.onlyNew||l.fs===D.today)&&(!S.onlyFav||FAV[l.id])});
+  var forCls=D.listings.filter(function(l){return !l.ms&&S.rooms.indexOf(l.r)>=0&&(S.sell[l.s==='?'?'a':l.s])&&passTab(l,S.tab)&&(!S.fresh||isFresh(l))&&(!S.onlyFav||FAV[l.id])});
   var names=[['draft','Черновая'],['likely','Вероятно черновая'],['unknown','Не ясно'],['renovated','С ремонтом']];
   document.getElementById('cls').innerHTML='<span class="lbl">отделка</span>'+names.map(function(n){
     return chip(n[1],S.cls[n[0]],'data-cls="'+n[0]+'"',forCls.filter(function(l){return l.cl===n[0]}).length);
@@ -205,7 +230,7 @@ function renderHead(){
     return chip(n[1],S.sell[n[0]],'data-sell="'+n[0]+'"');
   }).join('');
 
-  document.getElementById('misc').innerHTML=chip('Только новые',S.onlyNew,'data-misc="new"')+chip('★ Избранное',S.onlyFav,'data-misc="fav"')+
+  document.getElementById('misc').innerHTML=chip('★ Избранное',S.onlyFav,'data-misc="fav"')+
     '<select id="sortsel">'+[['margin','по марже'],['new','сначала новые'],['price','дешевле'],['ppm','дешевле за м²'],['area','больше площадь']].map(function(o){
       return '<option value="'+o[0]+'"'+(S.sort===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>';
 }
@@ -231,7 +256,7 @@ function dropInfo(l){
   return last<prev?(prev-last)/1e6:null;
 }
 function cardHtml(l){
-  var ev=evalL(l),isNew=l.fs===D.today,open=!!OPEN[l.id];
+  var ev=evalL(l),isNew=freshDate(l)===D.today,open=!!OPEN[l.id];
   var drop=dropInfo(l);
   var addr=(l.m?l.m+' мкр':'')+(l.h?', д. '+l.h:'');
   var mg=ev.margin==null?'<div class="mg n">—<small>задай цену продажи</small></div>':
@@ -287,7 +312,7 @@ function sorted(arr){
   var ev={};arr.forEach(function(l){ev[l.id]=evalL(l)});
   var by={
     margin:function(a,b){var x=ev[a.id].margin,y=ev[b.id].margin;if(x==null&&y==null)return a.p/a.a-b.p/b.a;if(x==null)return 1;if(y==null)return -1;return y-x},
-    new:function(a,b){return (b.fs>a.fs?1:b.fs<a.fs?-1:b.id-a.id)},
+    new:function(a,b){var x=freshDate(a),y=freshDate(b);return y>x?1:y<x?-1:b.id-a.id},
     price:function(a,b){return a.p-b.p},
     ppm:function(a,b){return a.p/a.a-b.p/b.a},
     area:function(a,b){return b.a-a.a}
@@ -297,7 +322,7 @@ function sorted(arr){
 function renderList(){
   var arr=D.listings.filter(function(l){return passBase(l)&&passTab(l,S.tab)});
   var el=document.getElementById('list');
-  if(!arr.length){el.innerHTML='<div class="empty">Нет объявлений по этим фильтрам.<br>Попробуй включить «Вероятно черновая» или «Не ясно».</div>';return}
+  if(!arr.length){el.innerHTML='<div class="empty">'+(S.fresh?'Свежих объявлений по этим фильтрам нет.<br>Попробуй «2 дн» или включи «Вероятно черновая».':'Нет объявлений по этим фильтрам.<br>Попробуй включить «Вероятно черновая» или «Не ясно».')+'</div>';return}
   var s=sorted(arr),shown=s.slice(0,LIMIT);
   el.innerHTML=shown.map(cardHtml).join('')+(s.length>LIMIT?'<button class="more" data-more="1">Показать ещё ('+(s.length-LIMIT)+')</button>':'');
 }
@@ -340,14 +365,16 @@ function renderAll(){renderHead();renderBanners();renderList();if(document.getEl
 /* ---------- события ---------- */
 function num(v){v=String(v).replace(',','.').replace(/[^\d.\-]/g,'');return v===''||isNaN(+v)?null:+v}
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-tab],[data-room],[data-cls],[data-sell],[data-misc],[data-toggle],[data-fav],[data-scen],[data-mkr],[data-more],[data-reset],[data-refadd],[data-refdel],[data-resetall],#gear');
+  var t=e.target.closest('[data-tab],[data-room],[data-cls],[data-sell],[data-misc],[data-mode],[data-fdays],[data-toggle],[data-fav],[data-scen],[data-mkr],[data-more],[data-reset],[data-refadd],[data-refdel],[data-resetall],#gear');
   if(!t)return;
   if(t.id==='gear'){var s=document.getElementById('set');s.classList.toggle('open');if(s.classList.contains('open'))renderSettings();return}
   if(t.dataset.tab!=null){S.tab=t.dataset.tab;LIMIT=40}
   else if(t.dataset.room!=null){var r=+t.dataset.room,i=S.rooms.indexOf(r);if(i>=0){if(S.rooms.length>1)S.rooms.splice(i,1)}else S.rooms.push(r)}
   else if(t.dataset.cls!=null){S.cls[t.dataset.cls]=!S.cls[t.dataset.cls]}
   else if(t.dataset.sell!=null){S.sell[t.dataset.sell]=!S.sell[t.dataset.sell]}
-  else if(t.dataset.misc!=null){if(t.dataset.misc==='new')S.onlyNew=!S.onlyNew;else S.onlyFav=!S.onlyFav}
+  else if(t.dataset.misc!=null){S.onlyFav=!S.onlyFav}
+  else if(t.dataset.mode!=null){S.fresh=t.dataset.mode==='fresh';LIMIT=40}
+  else if(t.dataset.fdays!=null){S.freshDays=+t.dataset.fdays;LIMIT=40}
   else if(t.dataset.mkr!=null){var m=t.dataset.mkr,j=S.mkrs.indexOf(m);if(j>=0)S.mkrs.splice(j,1);else S.mkrs.push(m)}
   else if(t.dataset.more){LIMIT+=40}
   else if(t.dataset.fav!=null){e.stopPropagation();var id=t.dataset.fav;if(FAV[id])delete FAV[id];else FAV[id]=1;LS.set('kz_fav',FAV)}

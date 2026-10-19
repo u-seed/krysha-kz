@@ -235,7 +235,7 @@ check("12t.ordinal_letter", (r[0], r[2]), ("31Б", None))
 r = k.resolve_mkr('мкр "Шыгыс 3" 255/1', "3м., санузел совмещенный, Шығыс-3 мкр 255/1 дом 4 бөлме")
 check("12u.named", (r[0], r[2]), ("Шыгыс 3", None))
 r = k.resolve_mkr("17-й мкр, 7а 22", "ЖК «Три Короны», Актау 📍 Адрес: 7А микрорайон, дом 22, ЖК Три Короны")
-check("12v.addr_in_desc", (r[0], r[2], r[3]), ("7А", "d", "17"))
+check("12v.addr_in_desc", (r[0], r[1], r[2], r[3]), ("7А", "22", "a", "17"))
 r = k.resolve_mkr("6-й мкр 26", "Продается 2-х комнатная квартира в 8 микрорайоне, в 15 доме. 1/5 этаж")
 check("12w.desc_move", (r[0], r[2]), ("8", "d"))
 r = k.resolve_mkr("18-й мкр , 18 мкр 5", "Квартира в микрорайон 7 дом 3 этаж")
@@ -244,6 +244,17 @@ check("12x.b_without_letter", (r[0], r[2]), ("18", None))
 # адрес продавца и описание вместе вернули мкр с карты -> пометки нет
 r = k.resolve_mkr("19А мкр, 19-й мкр 24", "📍 19А мкр, 24 дом 🏢 ЖК «Ғасыр» Евродвушка")
 check("12y.back_to_geo", (r[0], r[2], r[3]), ("19А", None, None))
+
+# 12++. адрес продавца без слова «мкр»
+check("12z1.bare_spaced", k.resolve_mkr("18-й мкр , 29 а 167 — Возле ТЕКлет", ""), ("29А", "167", "a", "18"))
+check("12z2.bare_glued", k.resolve_mkr("18-й мкр , 29А167", ""), ("29А", "167", "a", "18"))
+check("12z3.bare_latin", k.resolve_mkr("18-й мкр , 29a 167", ""), ("29А", "167", "a", "18"))
+check("12z4.bare_no_geo", k.resolve_mkr("29 a 170 — 29 a Адал Таун Bs Holding", ""), ("29А", "170", "a", None))
+check("12z5.bare_plain", k.resolve_mkr("19А мкр, 25 51", "")[:2], ("25", "51"))
+check("12z6.same_as_geo", k.resolve_mkr("19-й мкр, 19 5", ""), ("19", "5", None, None))
+check("12z7.not_bare_street", k.resolve_mkr("18-й мкр , ЖК Самал 30", "")[2], None)
+check("12z8.not_bare_big", k.resolve_mkr("18-й мкр , 167 4", "")[2], None)
+check("12z9.parse_address_unchanged", k.parse_address("29 a 170 — 29 a Адал Таун Bs Holding")[0], None)
 
 # 13. исключённые ЖК (по полю ЖК и по тексту «ЖК …»)
 import json as _json  # noqa: E402
@@ -255,7 +266,8 @@ check("13b", k.is_excluded({"zk": None, "ad": "", "ds": "Продается 4х 
 check("13c", k.is_excluded({"zk": None, "ad": "", "ds": "в жк Шахар Таурс"}, px), True)
 check("13d", k.is_excluded({"zk": "Махаббат", "ad": "", "ds": ""}, px), True)
 check("13e", k.is_excluded({"zk": None, "ad": "", "ds": "жилой комплекс «Махаббат», 3 этаж"}, px), True)
-check("13f.plaza_stays", k.is_excluded({"zk": "Шахар плаза", "ad": "", "ds": ""}, px), False)
+check("13f.plaza_excluded", k.is_excluded({"zk": "Шахар плаза", "ad": "", "ds": ""}, px), True)
+check("13f2.plaza_text", k.is_excluded({"zk": None, "ad": "", "ds": "в жк Шахар Плаза 3 этаж"}, px), True)
 check("13g.other_stays", k.is_excluded({"zk": "Aktau Towers", "ad": "", "ds": "шикарная квартира"}, px), False)
 check("13h.word_love", k.is_excluded({"zk": None, "ad": "", "ds": "махаббат отбасы үшін, жайлы үй"}, px), False)
 
