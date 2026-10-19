@@ -256,6 +256,9 @@ check("12z7.not_bare_street", k.resolve_mkr("18-й мкр , ЖК Самал 30",
 check("12z8.not_bare_big", k.resolve_mkr("18-й мкр , 167 4", "")[2], None)
 check("12z9.parse_address_unchanged", k.parse_address("29 a 170 — 29 a Адал Таун Bs Holding")[0], None)
 
+r = k.resolve_mkr('мкр "Самал 2", Микрорайон Самал-2 18', "")
+check("12za.samal2_house", (r[0], r[2]), ("Самал 2", None))
+
 # 13. исключённые ЖК (по полю ЖК и по тексту «ЖК …»)
 import json as _json  # noqa: E402
 cfg_x = _json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
@@ -270,6 +273,18 @@ check("13f.plaza_excluded", k.is_excluded({"zk": "Шахар плаза", "ad": 
 check("13f2.plaza_text", k.is_excluded({"zk": None, "ad": "", "ds": "в жк Шахар Плаза 3 этаж"}, px), True)
 check("13g.other_stays", k.is_excluded({"zk": "Aktau Towers", "ad": "", "ds": "шикарная квартира"}, px), False)
 check("13h.word_love", k.is_excluded({"zk": None, "ad": "", "ds": "махаббат отбасы үшін, жайлы үй"}, px), False)
+
+# 14. исключение по дому и ЖК Нова
+ph = px.houses
+check("14.houses_cfg", ph.get("18") is not None and {"43/1", "42", "18", "21"} <= ph["18"], True)
+for h in ("43/1", "43/2", "43/3", "42", "18", "19", "20", "21", "43-2"):
+    check("14a.house_" + h, k.is_excluded({"m": "18", "h": h, "zk": None, "ad": "", "ds": ""}, px), True)
+for m_, h in (("18", "7"), ("18", "31"), ("18", "43/7"), ("18", "420"), ("18", None), ("17", "42"), ("19", "18"), ("29А", "21")):
+    check("14b.stays_%s_%s" % (m_, h), k.is_excluded({"m": m_, "h": h, "zk": None, "ad": "", "ds": ""}, px), False)
+check("14c.nova_zk", k.is_excluded({"m": "18", "h": "42", "zk": "Nova", "ad": "", "ds": ""}, px), True)
+check("14d.nova_text", k.is_excluded({"m": "16", "h": "18", "zk": None, "ad": "", "ds": "г. Актау ЖК “НОВА” 18мкр"}, px), True)
+check("14e.nova_not_novyi", k.is_excluded({"m": "17", "h": "1", "zk": None, "ad": "", "ds": "новая квартира, новостройка, Нова-вилла"}, px), False)
+check("14f.nova_zk_other", k.is_excluded({"m": "17", "h": "1", "zk": "Новая Алматы", "ad": "", "ds": ""}, px), False)
 
 if FAILS:
     print("ПРОВАЛЕНО %d проверок:" % len(FAILS))

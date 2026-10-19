@@ -182,7 +182,7 @@ def _mkr_mentions(text, skip_landmarks=False):
     """Все упоминания микрорайона в тексте: [(норм. мкр, начало, конец)] по порядку.
     skip_landmarks=True — режим для описания: пропускаем ориентиры («рядом с 17 мкр»), всё, что сказано
     после слова «обмен» (там перечисляют, куда хотят обменять), и «мкр 18» без буквы и знака после числа."""
-    text = NAMED_MKR.sub(lambda m: " " * len(m.group(0)), text or "")
+    text = NAMED_MKR.sub(lambda m: "\u00a7" * len(m.group(0)), text or "")  # § — чтобы число после «Самал-2» не стало номером мкр
     limit = len(text)
     if skip_landmarks:
         ex = EXCHANGE.search(text)
@@ -257,20 +257,34 @@ def fix_record(rec):
     return rec
 
 
-def is_excluded(rec, patterns):
-    """ЖК, которые пользователь не рассматривает (config.json → exclude_zhk)."""
+class ExcludeRules(list):
+    """Правила исключения: сам список — регулярки ЖК (exclude_zhk); .houses — {мкр: {номера домов}} (exclude_houses)."""
+    houses = {}
+
+
+def _norm_house(h):
+    return re.sub(r"\s+", "", str(h or "")).lower().replace("-", "/").replace("\\", "/")
+
+
+def is_excluded(rec, rules):
+    """Объявления, которые пользователь не рассматривает (config.json): ЖК по названию и дома по адресу."""
     zk = rec.get("zk") or ""
     text = "%s %s" % (rec.get("ad") or "", rec.get("ds") or "")
-    for p in patterns:
+    for p in rules:
         if p.search(zk):
             return True
         if re.search(r"(?:жк|комплекс\w*)\W{0,3}(?:%s)" % p.pattern, text, re.I):
             return True
+    hs = getattr(rules, "houses", None) or {}
+    if rec.get("m") in hs and rec.get("h") and _norm_house(rec["h"]) in hs[rec["m"]]:
+        return True
     return False
 
 
 def exclude_patterns(cfg):
-    return [re.compile(x, re.I) for x in cfg.get("exclude_zhk", []) if x]
+    rules = ExcludeRules(re.compile(x, re.I) for x in cfg.get("exclude_zhk", []) if x)
+    rules.houses = {str(m): set(_norm_house(h) for h in hs) for m, hs in (cfg.get("exclude_houses") or {}).items()}
+    return rules
 
 
 def classify(state, text):
