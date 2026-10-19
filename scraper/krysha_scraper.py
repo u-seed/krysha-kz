@@ -210,8 +210,13 @@ def _mkr_mentions(text, skip_landmarks=False):
     return out
 
 
-def resolve_mkr(addr, desc):
-    """-> (mkr, house, src, orig).
+def desc_mkrs(desc):
+    """Микрорайоны, названные в описании как адрес (без ориентиров и «обмена»), по порядку."""
+    return [x[0] for x in _mkr_mentions(desc, skip_landmarks=True)]
+
+
+def resolve_mkr(addr, desc, dm=None):
+    """-> (mkr, house, src, orig). dm — уже найденные в описании мкр (если None — ищем в desc).
     src: None — как на карте; 'a' — мкр из адреса продавца; 'd' — мкр из описания.
     orig — мкр с карты до исправления (None, если не менялся)."""
     geo, house = parse_address(addr)
@@ -231,7 +236,8 @@ def resolve_mkr(addr, desc):
         bare = _bare_addr(main)
         if bare:
             mkr, house, src = bare[0], bare[1], "a"
-    dm = [x[0] for x in _mkr_mentions(desc, skip_landmarks=True)]
+    if dm is None:
+        dm = desc_mkrs(desc)
     if dm and mkr not in dm:
         best, cnt = dm[0], 0
         for x in dm:
@@ -244,10 +250,19 @@ def resolve_mkr(addr, desc):
 
 
 def fix_record(rec):
-    """Пересчитать мкр у готовой записи (по сохранённым ad и ds). Нужна для старых снимков и для --reprocess."""
-    mkr, house, src, orig = resolve_mkr(rec.get("ad"), rec.get("ds"))
+    """Пересчитать мкр у готовой записи (по ad и по dm — списку мкр из описания, сохранённому при сборе).
+    У старых записей без dm: полное описание → ищем в нём; обрезанное («…») → оставляем как есть,
+    потому что решение по описанию принято при сборе по полному тексту, а по обрезку его не повторить."""
+    ds = rec.get("ds") or ""
+    if "dm" in rec:
+        dm = rec["dm"]
+    elif ds.endswith("…"):
+        return rec
+    else:
+        dm = desc_mkrs(ds)
+    mkr, house, src, orig = resolve_mkr(rec.get("ad"), None, dm)
     if src is None:
-        # мкр не менялся — оставляем как есть (дом тоже), старые пометки убираем
+        # мкр не менялся — оставляем как на карте, старые пометки убираем
         rec.pop("mo", None)
         rec.pop("mw", None)
         geo, h0 = parse_address(rec.get("ad"))
@@ -260,6 +275,7 @@ def fix_record(rec):
 class ExcludeRules(list):
     """Правила исключения: сам список — регулярки ЖК (exclude_zhk); .houses — {мкр: {номера домов}} (exclude_houses)."""
     houses = {}
+    text = []  # однозначные названия: ищем в тексте объявления и без слова «ЖК»
 
 
 def _norm_house(h):
@@ -275,6 +291,9 @@ def is_excluded(rec, rules):
             return True
         if re.search(r"(?:жк|комплекс\w*)\W{0,3}(?:%s)" % p.pattern, text, re.I):
             return True
+    for p in getattr(rules, "text", None) or []:
+        if p.search(text):
+            return True
     hs = getattr(rules, "houses", None) or {}
     if rec.get("m") in hs and rec.get("h") and _norm_house(rec["h"]) in hs[rec["m"]]:
         return True
@@ -283,6 +302,7 @@ def is_excluded(rec, rules):
 
 def exclude_patterns(cfg):
     rules = ExcludeRules(re.compile(x, re.I) for x in cfg.get("exclude_zhk", []) if x)
+    rules.text = [re.compile(x, re.I) for x in cfg.get("exclude_text", []) if x]
     rules.houses = {str(m): set(_norm_house(h) for h in hs) for m, hs in (cfg.get("exclude_houses") or {}).items()}
     return rules
 
@@ -390,7 +410,8 @@ def parse_card_lines(lines, city_name="Актау"):
         elif re.search(r"(?<![\wа-яё])специалист(?![\wа-яё])(?!\s+подтвердил)", blob, re.I):
             seller = "a"
 
-    mkr, house, mkr_src, mkr_orig = resolve_mkr(addr, desc)
+    dm = desc_mkrs(desc)
+    mkr, house, mkr_src, mkr_orig = resolve_mkr(addr, desc, dm)
 
     state = None
     ms = STATE.search(desc)
@@ -442,6 +463,7 @@ def parse_card_lines(lines, city_name="Актау"):
         "st": state, "cl": cls, "s": seller or "?", "fl": flags,
         "d": date_txt, "ds": desc, "_city_ok": city_ok, "_id": href_id,
     }
+    item["dm"] = dm  # мкр из описания: нужны, чтобы пересчитать мкр без обрезанного текста
     if mkr_src:
         item["mo"], item["mw"] = mkr_orig, mkr_src
     return item

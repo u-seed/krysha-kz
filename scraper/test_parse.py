@@ -259,6 +259,22 @@ check("12z9.parse_address_unchanged", k.parse_address("29 a 170 — 29 a Ада�
 r = k.resolve_mkr('мкр "Самал 2", Микрорайон Самал-2 18', "")
 check("12za.samal2_house", (r[0], r[2]), ("Самал 2", None))
 
+# fix_record: у старых записей без dm по обрезанному описанию («…») ничего не отменяем и не придумываем
+rec = {"ad": "13-й мкр 24", "ds": "хороший ремонт, рядом школа…", "m": "29", "h": None, "mo": "13", "mw": "d"}
+k.fix_record(rec); check("12zb.keep_old_truncated", (rec["m"], rec["mw"]), ("29", "d"))
+rec = {"ad": "17-й мкр 55", "ds": "жил. комплекс Комфорт 19а микрорайон, монолитный дом, 2022 г…", "m": "17", "h": "55"}
+k.fix_record(rec); check("12zc.no_new_desc_on_truncated", (rec["m"], rec.get("mw")), ("17", None))
+# новые записи хранят dm — пересчёт точный, даже когда ds обрезан
+rec = {"ad": "18-й мкр , 29а мкр 168", "ds": "кирпичный дом…", "dm": [], "m": "18", "h": None}
+k.fix_record(rec); check("12zd.address_with_dm", (rec["m"], rec["h"], rec["mw"]), ("29А", "168", "a"))
+rec = {"ad": "19А мкр, 19-й мкр 24", "ds": "📍 19А мкр, 24 дом…", "dm": ["19А"], "m": "19А", "h": "24"}
+k.fix_record(rec); check("12ze.dm_vetoes_address", (rec["m"], rec.get("mw")), ("19А", None))
+rec = {"ad": "6-й мкр 26", "ds": "в 8 микрорайоне, в 15 доме…", "dm": ["8"], "m": "6", "h": "26"}
+k.fix_record(rec); check("12zf.dm_moves", (rec["m"], rec["mw"], rec["mo"]), ("8", "d", "6"))
+c = card(["2-комнатная квартира · 60 м² · 3/5 этаж", "20 000 000 ₸", "6-й мкр 26", "в 8 микрорайоне, в 15 доме. хорошо",
+          "Хозяин недвижимости", "Актау", "17 окт."])
+check("12zg.card_stores_dm", (c["m"], c["dm"]), ("8", ["8"]))
+
 # 13. исключённые ЖК (по полю ЖК и по тексту «ЖК …»)
 import json as _json  # noqa: E402
 cfg_x = _json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
@@ -285,6 +301,10 @@ check("14c.nova_zk", k.is_excluded({"m": "18", "h": "42", "zk": "Nova", "ad": ""
 check("14d.nova_text", k.is_excluded({"m": "16", "h": "18", "zk": None, "ad": "", "ds": "г. Актау ЖК “НОВА” 18мкр"}, px), True)
 check("14e.nova_not_novyi", k.is_excluded({"m": "17", "h": "1", "zk": None, "ad": "", "ds": "новая квартира, новостройка, Нова-вилла"}, px), False)
 check("14f.nova_zk_other", k.is_excluded({"m": "17", "h": "1", "zk": "Новая Алматы", "ad": "", "ds": ""}, px), False)
+
+check("14g.shahar_no_zhk_word", k.is_excluded({"m": "18А", "h": "25", "zk": None, "ad": "", "ds": "2018 г.п., Шахар Плаза черновой 2-болме"}, px), True)
+check("14h.terra_nova_stays", k.is_excluded({"m": "39", "h": "1", "zk": None, "ad": "", "ds": "Срочно продается 2х квартира в ЖК Terra Nova общей площадью 70 м2"}, px), False)
+check("14i.shahar_unrelated", k.is_excluded({"m": "17", "h": "1", "zk": None, "ad": "", "ds": "шикарная квартира, центр шахара"}, px), False)
 
 if FAILS:
     print("ПРОВАЛЕНО %d проверок:" % len(FAILS))
