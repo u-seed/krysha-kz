@@ -1,13 +1,26 @@
 {
   "city_name": "Актау",
   "list_url": "https://krisha.kz/prodazha/kvartiry/aktau/",
-  "rooms": [2, 3, 4],
+  "rooms": [
+    2,
+    3,
+    4
+  ],
   "max_pages": 400,
   "delay_min": 1.0,
   "delay_max": 2.2,
   "keep_missing_runs": 3,
   "min_ratio_to_prev": 0.5,
   "detail_fetch": false,
-  "detail_mkr": ["17", "18", "19"],
-  "detail_max_per_run": 120
+  "detail_mkr": [
+    "17",
+    "18",
+    "19"
+  ],
+  "detail_max_per_run": 120,
+  "exclude_zhk": [
+    "шахар\\s*(?:towers?|тау\\w*)",
+    "shahar\\s*tow\\w*",
+    "махаббат|махабат|махабад|mahabbat"
+  ]
 }

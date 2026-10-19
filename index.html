@@ -276,6 +276,7 @@ function detHtml(l,ev){
     (ev.scen==='low'&&sc?'<div class="grid"><div class="fld"><label>ДКП покупки (занижен), млн</label><input inputmode="decimal" data-ov="dkp" data-id="'+l.id+'" value="'+(ov.dkp!=null&&ov.dkp!==''?esc(ov.dkp):S.costs.dkpLow)+'"></div></div>':'')+
     (sc?'<div class="brk" id="brk'+l.id+'">'+brk+'</div>':'')+
     (ph&&(l.ph||[]).length>1?'<div class="hint">История цены: '+ph+'</div>':'')+
+    (l.mo!=null||l.mw?'<div class="hint">Мкр исправлен: на карте крыши «'+esc(l.mo==null?'—':l.mo)+'», '+(l.mw==='d'?'в описании':'в адресе продавца')+' — '+esc(l.m)+'</div>':'')+
     '<div class="hint">Видим с '+dshort(l.fs)+(l.d?' · на крыше: '+esc(l.d):'')+(l.y?' · '+l.y+' г.п.':'')+(l.b?' · '+esc(l.b):'')+'</div>'+
     '<a class="lnk" target="_blank" rel="noopener" href="https://krisha.kz/a/show/'+l.id+'">Открыть на крыше →</a>'+
   '</div>';

@@ -1,5 +1,5 @@
 /* krysha-kz service worker: сеть в приоритете (данные всегда свежие), кэш — на случай отсутствия связи */
-var CACHE = 'krysha-kz-v1';
+var CACHE = 'krysha-kz-v2';
 var SHELL = ['./', 'index.html', 'calc.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {

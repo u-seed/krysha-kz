@@ -103,7 +103,7 @@ TORG = re.compile(r"торг", re.I)
 
 
 def norm_ws(s):
-    return re.sub(r"[\s  ]+", " ", s or "").strip()
+    return re.sub(r"[\s  ]+", " ", (s or "").replace("\u200b", "")).strip()
 
 
 def norm_mkr(num, letter):
@@ -140,6 +140,119 @@ def parse_address(addr):
     if hs:
         house = hs[-1]
     return mkr, house
+
+
+# --------------------------------------------------------------------------
+#  Какой это микрорайон на самом деле
+#
+#  Поле адреса на крыше состоит из двух частей: «18-й мкр , Мкр. 29А Латифа».
+#  Первая — микрорайон, выбранный на карте (его часто ставят «как попало»),
+#  вторая — адрес, который ввёл продавец. Ещё мкр бывает в описании.
+#  Приоритет: описание > адрес продавца > мкр с карты.
+# --------------------------------------------------------------------------
+
+MKR_MAX = 41  # в Актау микрорайоны 1–41; бóльшие числа — это номер дома
+MKR_WORD = r"(?:мкр\.?|мкрн\.?|мкр-н|микр-н|микрорайон\w{0,3})"
+# «29А микрорайон», «19 мкр», «29а мкр», «18-й мкр»
+MKR_TXT_A = re.compile(
+    r"(?<![\d/.,-])(\d{1,2})\s*-?\s*(?:й|м|ый|ой|ом|ий)?\s*([%s])?\s*-?\s*(?:й|м)?\s*%s(?![а-яёa-z])" % (LETTER, MKR_WORD), re.I)
+# «Мкр. 29А 167», «микрорайон 18а»; «Новый микрорайон 5)» — это пункт списка, не мкр
+MKR_TXT_B = re.compile(r"%s\s*(\d{1,2})\s*([%s])?(?![\d)\-а-яёa-z])" % (MKR_WORD, LETTER), re.I)
+# мкр с именем («Шыгыс 3», «Самал 2»): цифра после имени — часть названия, а не номер мкр
+NAMED_MKR = re.compile(r"(?:шыг[ыі]с|шығыс|самал|толкын|оймаш|акжелкен)\s*-?\s*\d+", re.I)
+EXCHANGE = re.compile(r"обмен|айырбас", re.I)
+# ориентиры, а не адрес: «рядом с 17 мкр», «обмен на 27 мкр», «напротив 16 мкрн»
+LANDMARK_BEFORE = re.compile(
+    r"(?:^|[\s,.;:(—-])(?:рядом|возле|около|напротив|недалеко|близко|близ|вблизи|обмен\w*|между|соседн\w*|через|"
+    r"от|до|из|в\s+сторону)\s*(?:с|со|на|от|к|же)?\s*$", re.I)
+
+
+def _mkr_mentions(text, skip_landmarks=False):
+    """Все упоминания микрорайона в тексте: [(норм. мкр, начало, конец)] по порядку.
+    skip_landmarks=True — режим для описания: пропускаем ориентиры («рядом с 17 мкр»), всё, что сказано
+    после слова «обмен» (там перечисляют, куда хотят обменять), и «мкр 18» без буквы и знака после числа."""
+    text = NAMED_MKR.sub(lambda m: " " * len(m.group(0)), text or "")
+    limit = len(text)
+    if skip_landmarks:
+        ex = EXCHANGE.search(text)
+        if ex:
+            limit = ex.start()
+    found = []
+    a_spans = []
+    for m in MKR_TXT_A.finditer(text):
+        a_spans.append((m.start(), m.end()))
+        found.append((m.start(), m.end(), m.group(1), m.group(2)))
+    for m in MKR_TXT_B.finditer(text):
+        if any(s <= m.start() < e for s, e in a_spans):
+            continue  # «мкр» уже входит в «18 мкр», а число после него — номер дома
+        if skip_landmarks and not m.group(2) and not re.match(r"\s*(?:[,.;]|$)", text[m.end():]):
+            continue  # «микрорайон 18 дом 7» — 18 здесь может быть и домом
+        found.append((m.start(), m.end(), m.group(1), m.group(2)))
+    found.sort()
+    out = []
+    for s, e, num, let in found:
+        if not (1 <= int(num) <= MKR_MAX) or s >= limit:
+            continue
+        if skip_landmarks and LANDMARK_BEFORE.search(text[max(0, s - 34):s]):
+            continue
+        out.append((norm_mkr(num, let), s, e))
+    return out
+
+
+def resolve_mkr(addr, desc):
+    """-> (mkr, house, src, orig).
+    src: None — как на карте; 'a' — мкр из адреса продавца; 'd' — мкр из описания.
+    orig — мкр с карты до исправления (None, если не менялся)."""
+    geo, house = parse_address(addr)
+    mkr, src = geo, None
+    main = (addr or "").split("—")[0]
+    _, _, typed = main.partition(",")
+    tm = _mkr_mentions(typed)
+    if tm and tm[0][0] != mkr:
+        mkr, src = tm[0][0], "a"
+        rest = typed[tm[0][2]:]
+        hs = HOUSE.findall(rest)
+        house = hs[-1] if hs else None
+    dm = [x[0] for x in _mkr_mentions(desc, skip_landmarks=True)]
+    if dm and mkr not in dm:
+        best, cnt = dm[0], 0
+        for x in dm:
+            if dm.count(x) > cnt:
+                best, cnt = x, dm.count(x)
+        mkr, src, house = best, "d", None
+    if mkr == geo:  # после всех поправок вернулись к мкр с карты — значит, исправлять нечего
+        return geo, parse_address(addr)[1], None, None
+    return mkr, house, src, geo
+
+
+def fix_record(rec):
+    """Пересчитать мкр у готовой записи (по сохранённым ad и ds). Нужна для старых снимков и для --reprocess."""
+    mkr, house, src, orig = resolve_mkr(rec.get("ad"), rec.get("ds"))
+    if src is None:
+        # мкр не менялся — оставляем как есть (дом тоже), старые пометки убираем
+        rec.pop("mo", None)
+        rec.pop("mw", None)
+        geo, h0 = parse_address(rec.get("ad"))
+        rec["m"], rec["h"] = geo, h0
+    else:
+        rec["m"], rec["h"], rec["mo"], rec["mw"] = mkr, house, orig, src
+    return rec
+
+
+def is_excluded(rec, patterns):
+    """ЖК, которые пользователь не рассматривает (config.json → exclude_zhk)."""
+    zk = rec.get("zk") or ""
+    text = "%s %s" % (rec.get("ad") or "", rec.get("ds") or "")
+    for p in patterns:
+        if p.search(zk):
+            return True
+        if re.search(r"(?:жк|комплекс\w*)\W{0,3}(?:%s)" % p.pattern, text, re.I):
+            return True
+    return False
+
+
+def exclude_patterns(cfg):
+    return [re.compile(x, re.I) for x in cfg.get("exclude_zhk", []) if x]
 
 
 def classify(state, text):
@@ -245,7 +358,7 @@ def parse_card_lines(lines, city_name="Актау"):
         elif re.search(r"(?<![\wа-яё])специалист(?![\wа-яё])(?!\s+подтвердил)", blob, re.I):
             seller = "a"
 
-    mkr, house = parse_address(addr)
+    mkr, house, mkr_src, mkr_orig = resolve_mkr(addr, desc)
 
     state = None
     ms = STATE.search(desc)
@@ -291,12 +404,15 @@ def parse_card_lines(lines, city_name="Актау"):
         flags.append("torg")
 
     href_id = None
-    return {
+    item = {
         "r": rooms, "a": area, "f": floor, "ft": floors, "p": price, "dev": developer,
         "m": mkr, "h": house, "ad": addr, "zk": zhk, "b": building, "y": year,
         "st": state, "cl": cls, "s": seller or "?", "fl": flags,
         "d": date_txt, "ds": desc, "_city_ok": city_ok, "_id": href_id,
     }
+    if mkr_src:
+        item["mo"], item["mw"] = mkr_orig, mkr_src
+    return item
 
 
 SHOW_ID = re.compile(r"/a/show/(\d+)")
@@ -469,6 +585,7 @@ DIAG = {"samples": [], "pages": []}
 
 
 def scrape(cfg, log=print):
+    EXCL = exclude_patterns(cfg)
     sess = make_session()
     found = {}
     pages_total = 0
@@ -508,6 +625,9 @@ def scrape(cfg, log=print):
                 break
             new = [c for c in cards if c["id"] not in found]
             for c in new:
+                if is_excluded(c, EXCL):
+                    DIAG["excluded"] = DIAG.get("excluded", 0) + 1
+                    continue
                 found[c["id"]] = c
             if page > 1 and not new:
                 dup_pages += 1
@@ -561,7 +681,9 @@ def merge(prev_data, found, cfg, now=None):
             continue
         ms = p.get("ms", 0) + 1
         if ms < keep:
-            q = dict(p)
+            q = fix_record(dict(p))
+            if is_excluded(q, exclude_patterns(cfg)):
+                continue
             q["ms"] = ms
             out.append(q)
 
@@ -646,15 +768,47 @@ def write_debug(dbg):
     (dbg / "pages.json").write_text(json.dumps(DIAG["pages"], ensure_ascii=False), encoding="utf-8")
 
 
+def reprocess(out, cfg, log=print):
+    """Без сети: пересчитать мкр и убрать исключённые ЖК в уже собранном data.json."""
+    data = load_json(out / "data.json")
+    if not data or not data.get("listings"):
+        raise SystemExit("нет data.json для переобработки")
+    pats = exclude_patterns(cfg)
+    kept, n_ex, n_fix = [], 0, 0
+    for rec in data["listings"]:
+        before = rec.get("m")
+        fix_record(rec)
+        if is_excluded(rec, pats):
+            n_ex += 1
+            continue
+        if rec.get("m") != before:
+            n_fix += 1
+        kept.append(rec)
+    data["listings"] = kept
+    data["count"] = len(kept)
+    data["new_today"] = sum(1 for r in kept if r.get("fs") == data.get("today") and not r.get("ms"))
+    write_json(out / "data.json", data)
+    st = load_json(out / "status.json") or {}
+    st["excluded"] = n_ex
+    write_json(out / "status.json", st)
+    log("Переобработка: убрано ЖК из списка исключений %d, исправлен мкр у %d, осталось %d" % (n_ex, n_fix, len(kept)))
+    return n_ex, n_fix
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT), help="куда писать data.json/status.json")
     ap.add_argument("--debug-dir", default=str(ROOT / "debug"))
+    ap.add_argument("--reprocess", action="store_true",
+                    help="без сети: заново применить правила (мкр, исключённые ЖК) к текущему data.json")
     args = ap.parse_args()
 
     cfg = dict(DEFAULT_CFG)
     cfg.update(load_json(ROOT / "config.json") or {})
     out = Path(args.out)
+    if args.reprocess:
+        reprocess(out, cfg)
+        return
     dbg = Path(args.debug_dir)
     now = datetime.now(TZ)
     status = {"ok": False, "time": now.strftime("%Y-%m-%dT%H:%M:%S%z")}
@@ -685,7 +839,8 @@ def main():
         fetch_details(cfg, data)
 
     write_json(out / "data.json", data)
-    status.update({"ok": True, "pages": pages, "listings": len(found), "new": n_new})
+    status.update({"ok": True, "pages": pages, "listings": len(found), "new": n_new,
+                   "excluded": DIAG.get("excluded", 0)})
     write_json(out / "status.json", status)
     draft = sum(1 for l in data["listings"] if l["cl"] in ("draft", "likely") and not l.get("ms"))
     print("Готово: %d объявлений, новых %d, черновых/вероятных %d" % (len(found), n_new, draft))
