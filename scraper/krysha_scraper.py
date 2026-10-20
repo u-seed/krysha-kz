@@ -276,14 +276,34 @@ class ExcludeRules(list):
     """Правила исключения: сам список — регулярки ЖК (exclude_zhk); .houses — {мкр: {номера домов}} (exclude_houses)."""
     houses = {}
     text = []  # однозначные названия: ищем в тексте объявления и без слова «ЖК»
+    mkrs = set()  # целые микрорайоны (exclude_mkr), нормализованные
+    mkr_ranges = []  # [(от, до)] по числовой части номера, буквенные варианты включены
 
 
 def _norm_house(h):
     return re.sub(r"\s+", "", str(h or "")).lower().replace("-", "/").replace("\\", "/")
 
 
+def _norm_mkr(m):
+    return re.sub(r"[\s\-]+", "", str(m or "")).upper()
+
+
+def mkr_excluded(m, rules):
+    if not m:
+        return False
+    if _norm_mkr(m) in (getattr(rules, "mkrs", None) or set()):
+        return True
+    mt = re.match(r"\d+", str(m))
+    if mt:
+        n = int(mt.group())
+        return any(a <= n <= b for a, b in (getattr(rules, "mkr_ranges", None) or []))
+    return False
+
+
 def is_excluded(rec, rules):
     """Объявления, которые пользователь не рассматривает (config.json): ЖК по названию и дома по адресу."""
+    if mkr_excluded(rec.get("m"), rules):
+        return True
     zk = rec.get("zk") or ""
     text = "%s %s" % (rec.get("ad") or "", rec.get("ds") or "")
     for p in rules:
@@ -304,6 +324,8 @@ def exclude_patterns(cfg):
     rules = ExcludeRules(re.compile(x, re.I) for x in cfg.get("exclude_zhk", []) if x)
     rules.text = [re.compile(x, re.I) for x in cfg.get("exclude_text", []) if x]
     rules.houses = {str(m): set(_norm_house(h) for h in hs) for m, hs in (cfg.get("exclude_houses") or {}).items()}
+    rules.mkrs = set(_norm_mkr(m) for m in cfg.get("exclude_mkr", []) if m)
+    rules.mkr_ranges = [(int(a), int(b)) for a, b in cfg.get("exclude_mkr_ranges", [])]
     return rules
 
 

@@ -295,7 +295,7 @@ ph = px.houses
 check("14.houses_cfg", ph.get("18") is not None and {"43/1", "42", "18", "21"} <= ph["18"], True)
 for h in ("43/1", "43/2", "43/3", "42", "18", "19", "20", "21", "43-2"):
     check("14a.house_" + h, k.is_excluded({"m": "18", "h": h, "zk": None, "ad": "", "ds": ""}, px), True)
-for m_, h in (("18", "7"), ("18", "31"), ("18", "43/7"), ("18", "420"), ("18", None), ("17", "42"), ("19", "18"), ("29А", "21")):
+for m_, h in (("18", "7"), ("18", "31"), ("18", "43/7"), ("18", "420"), ("18", None), ("17", "42"), ("19", "18"), ("29", "21")):
     check("14b.stays_%s_%s" % (m_, h), k.is_excluded({"m": m_, "h": h, "zk": None, "ad": "", "ds": ""}, px), False)
 check("14c.nova_zk", k.is_excluded({"m": "18", "h": "42", "zk": "Nova", "ad": "", "ds": ""}, px), True)
 check("14d.nova_text", k.is_excluded({"m": "16", "h": "18", "zk": None, "ad": "", "ds": "г. Актау ЖК “НОВА” 18мкр"}, px), True)
@@ -305,6 +305,12 @@ check("14f.nova_zk_other", k.is_excluded({"m": "17", "h": "1", "zk": "Новая
 check("14g.shahar_no_zhk_word", k.is_excluded({"m": "18А", "h": "25", "zk": None, "ad": "", "ds": "2018 г.п., Шахар Плаза черновой 2-болме"}, px), True)
 check("14h.terra_nova_stays", k.is_excluded({"m": "39", "h": "1", "zk": None, "ad": "", "ds": "Срочно продается 2х квартира в ЖК Terra Nova общей площадью 70 м2"}, px), False)
 check("14i.shahar_unrelated", k.is_excluded({"m": "17", "h": "1", "zk": None, "ad": "", "ds": "шикарная квартира, центр шахара"}, px), False)
+
+# 15. исключение микрорайонов целиком (config.json)
+for m in ("1","1Б","3А","5А","7А","10","21","22","24","25","28А","29А","Самал","Самал 2","Толкын-2","Шыгыс 1","Шыгыс 2","Шыгыс 3"):
+    check("15.excl_" + m, k.is_excluded({"m": m, "h": "1", "zk": None, "ad": "", "ds": ""}, px), True)
+for m in ("11","12","16","17","18","18А","19","19А","20","20А","23","26","27","28","29","30","41",None):
+    check("15.keep_%s" % m, k.is_excluded({"m": m, "h": "1", "zk": None, "ad": "", "ds": ""}, px), False)
 
 if FAILS:
     print("ПРОВАЛЕНО %d проверок:" % len(FAILS))
